@@ -1,8 +1,8 @@
 import axios from "axios";
 
 const API = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || "http://localhost:5000",
-});;
+  baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000",
+});
 // Attach token automatically to every request made with this instance
 API.interceptors.request.use((config) => {
   const token = sessionStorage.getItem("token");
