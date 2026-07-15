@@ -111,7 +111,9 @@ export default function DoctorAppointments() {
     const fetchAppointments = async () => {
       try {
         setLoading(true);
-        const response = await getDoctorAppointments(filter);
+        // Convert filter to lowercase for API call
+        const statusFilter = filter === "all" ? "all" : filter.toLowerCase();
+        const response = await getDoctorAppointments(statusFilter);
         if (response.status === 1) {
           setAppointments(response.data || []);
         }
