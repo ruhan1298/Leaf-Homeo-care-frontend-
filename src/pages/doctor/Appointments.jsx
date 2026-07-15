@@ -72,7 +72,27 @@ const formatTime = (dateString) => {
 const canJoinCall = (appointmentDateTime) => {
   const now = new Date();
   const appointmentTime = new Date(appointmentDateTime);
-  const timeDiff = appointmentTime - now;
+  
+  // Convert both times to UTC for accurate comparison
+  const nowUTC = Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate(),
+    now.getUTCHours(),
+    now.getUTCMinutes(),
+    now.getUTCSeconds()
+  );
+  
+  const appointmentUTC = Date.UTC(
+    appointmentTime.getUTCFullYear(),
+    appointmentTime.getUTCMonth(),
+    appointmentTime.getUTCDate(),
+    appointmentTime.getUTCHours(),
+    appointmentTime.getUTCMinutes(),
+    appointmentTime.getUTCSeconds()
+  );
+  
+  const timeDiff = appointmentUTC - nowUTC;
   const minutesDiff = timeDiff / (1000 * 60);
   
   // Allow joining 10 minutes before appointment until 1 hour after
@@ -397,7 +417,27 @@ export default function DoctorAppointments() {
                               {(() => {
                                 const now = new Date();
                                 const appointmentTime = new Date(appointment.appointmentDateTime);
-                                const minutesDiff = Math.ceil((appointmentTime - now) / (1000 * 60));
+                                
+                                // Convert both times to UTC for accurate comparison
+                                const nowUTC = Date.UTC(
+                                  now.getUTCFullYear(),
+                                  now.getUTCMonth(),
+                                  now.getUTCDate(),
+                                  now.getUTCHours(),
+                                  now.getUTCMinutes(),
+                                  now.getUTCSeconds()
+                                );
+                                
+                                const appointmentUTC = Date.UTC(
+                                  appointmentTime.getUTCFullYear(),
+                                  appointmentTime.getUTCMonth(),
+                                  appointmentTime.getUTCDate(),
+                                  appointmentTime.getUTCHours(),
+                                  appointmentTime.getUTCMinutes(),
+                                  appointmentTime.getUTCSeconds()
+                                );
+                                
+                                const minutesDiff = Math.ceil((appointmentUTC - nowUTC) / (1000 * 60));
                                 if (minutesDiff > 0) {
                                   return `Available in ${minutesDiff} min`;
                                 } else {
