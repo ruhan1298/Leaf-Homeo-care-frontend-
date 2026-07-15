@@ -3,7 +3,7 @@ import axios from "axios";
 console.log("Mera Backend URL hai:", import.meta.env.VITE_API_URL);
 
 const API = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000",
+  baseURL: import.meta.env.VITE_API_URL,
 });
 
 // Attach token automatically to every request made with this instance
