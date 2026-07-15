@@ -1,34 +1,32 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { 
   LayoutDashboard, 
-  Stethoscope, 
-  Users, 
   Calendar, 
-  CreditCard, 
-  Truck, 
-  BarChart3, 
+  Users, 
+  FileText, 
   Bell, 
   Search, 
   LogOut, 
   Settings, 
   Menu, 
   X,
-  User
+  User,
+  Stethoscope,
+  Clock
 } from "lucide-react";
 
 // Brand color - kept for compatibility
 export const BRAND = "#00B100";
 
 const navItems = [
-  { icon: LayoutDashboard, label: "Dashboard", path: "/admin/dashboard" },
-  { icon: Stethoscope, label: "Doctors", path: "/admin/doctors" },
-  { icon: Users, label: "Patients", path: "/admin/patients" },
-  { icon: Calendar, label: "Appointments", path: "/admin/appointments" },
-  { icon: CreditCard, label: "Payments", path: "/admin/payments" },
-  { icon: Truck, label: "Courier Tracking", path: "/admin/courier" },
-  { icon: BarChart3, label: "Reports", path: "/admin/reports" },
-  { icon: User, label: "Profile", path: "/admin/profile" },
+  { icon: LayoutDashboard, label: "Dashboard", path: "/doctor/dashboard" },
+  { icon: Calendar, label: "Appointments", path: "/doctor/appointments" },
+  { icon: Calendar, label: "Appointment Requests", path: "/doctor/appointment-requests" },
+  { icon: FileText, label: "Consultation History", path: "/doctor/consultation-history" },
+  { icon: Clock, label: "Availability", path: "/doctor/availability" },
+  { icon: Bell, label: "Notifications", path: "/doctor/notifications" },
+  { icon: User, label: "Profile", path: "/doctor/profile" },
 ];
 
 function Sidebar({ sidebarOpen, setSidebarOpen }) {
@@ -51,8 +49,8 @@ function Sidebar({ sidebarOpen, setSidebarOpen }) {
       >
         {/* Brand Header */}
         <div className="flex h-16 items-center justify-between px-6 border-b border-white/10">
-          <Link to="/admin/dashboard" className="flex items-center gap-2.5 text-white decoration-transparent">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-primary shadow-lg shadow-brand-primary/30">
+          <Link to="/doctor/dashboard" className="flex items-center gap-2.5 text-white decoration-transparent">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-primary shadow-lg shadow-brand-primary/30 text-white font-bold">
               🌿
             </span>
             <span className="font-sans text-lg font-bold tracking-tight">
@@ -74,7 +72,7 @@ function Sidebar({ sidebarOpen, setSidebarOpen }) {
             const Icon = item.icon;
             return (
               <Link
-                key={item.path}
+                key={item.label}
                 to={item.path}
                 className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 decoration-transparent ${
                   isActive 
@@ -96,6 +94,12 @@ function Sidebar({ sidebarOpen, setSidebarOpen }) {
 
 function TopHeader({ setSidebarOpen }) {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    sessionStorage.clear();
+    navigate("/doctor/login");
+  };
 
   return (
     <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-gray-100 bg-white px-6 shadow-xs">
@@ -108,16 +112,15 @@ function TopHeader({ setSidebarOpen }) {
           <Menu size={20} />
         </button>
 
-        {/* Search */}
-        <div className="relative hidden sm:block w-72 md:w-96">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-            <Search size={16} />
-          </span>
-          <input
-            type="text"
-            placeholder="Search patients, doctors..."
-            className="w-full h-10 rounded-xl border border-gray-200 bg-gray-50/50 pl-10 pr-4 text-sm outline-hidden focus:border-brand-primary focus:bg-white transition-all"
-          />
+        {/* Brand indicator for mobile */}
+        <div className="flex items-center gap-2 lg:hidden">
+          <Stethoscope className="text-brand-primary" size={20} />
+          <span className="font-bold text-gray-800 text-sm">Doctor Portal</span>
+        </div>
+
+        <div className="hidden lg:flex items-center gap-2 text-xs font-semibold bg-brand-light text-brand-dark px-3 py-1 rounded-full border border-brand-primary/10">
+          <span className="w-1.5 h-1.5 rounded-full bg-brand-primary animate-pulse" />
+          Doctor Dashboard
         </div>
       </div>
 
@@ -138,25 +141,36 @@ function TopHeader({ setSidebarOpen }) {
             className="flex items-center gap-2 rounded-xl p-1.5 hover:bg-gray-50 transition-colors"
           >
             <div className="h-9 w-9 rounded-xl bg-brand-light flex items-center justify-center font-bold text-brand-dark text-sm border border-brand-primary/10">
-              AD
+              DR
             </div>
             <span className="text-xs text-gray-400 hidden sm:inline">▾</span>
           </button>
 
           {showProfileMenu && (
             <div className="absolute right-0 mt-2 w-48 rounded-xl border border-gray-100 bg-white p-1.5 shadow-xl ring-1 ring-black/5 animate-fadeIn">
-              <Link
-                to="/admin/profile"
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors decoration-transparent"
+              <button 
+                onClick={() => { navigate("/doctor/profile"); setShowProfileMenu(false); }}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors"
               >
                 <User size={15} className="text-gray-400" />
                 Profile
-              </Link>
-              <button
-                onClick={() => {
-                  sessionStorage.clear();
-                  window.location.href = "/admin/login";
-                }}
+              </button>
+              <button 
+                onClick={() => { navigate("/doctor/profile/edit"); setShowProfileMenu(false); }}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                <Settings size={15} className="text-gray-400" />
+                Edit Profile
+              </button>
+              <button 
+                onClick={() => { navigate("/doctor/profile/change-password"); setShowProfileMenu(false); }}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                <Settings size={15} className="text-gray-400" />
+                Change Password
+              </button>
+              <button 
+                onClick={handleLogout}
                 className="flex w-full items-center gap-2 rounded-lg border-t border-gray-50 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition-colors"
               >
                 <LogOut size={15} className="text-red-400" />
@@ -178,7 +192,7 @@ function Footer() {
   );
 }
 
-export default function AdminLayout({ children }) {
+export default function DoctorLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (

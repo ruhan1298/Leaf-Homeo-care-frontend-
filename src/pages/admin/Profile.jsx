@@ -128,7 +128,7 @@ export default function AdminProfile() {
   };
 
   const handleLogout = () => {
-    localStorage.clear();
+    sessionStorage.clear();
     window.location.href = "/admin/login";
   };
 

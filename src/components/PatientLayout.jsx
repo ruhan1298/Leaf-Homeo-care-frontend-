@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { 
   LayoutDashboard, 
   Calendar, 
@@ -13,6 +13,7 @@ import {
   Menu, 
   X,
   User,
+  Users,
   HeartPulse
 } from "lucide-react";
 
@@ -21,14 +22,23 @@ export const BRAND = "#00B100";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/patient/dashboard" },
-  { icon: Calendar, label: "Book Appointment", path: "#" },
-  { icon: MessageSquare, label: "Chat Doctor", path: "#" },
-  { icon: Package, label: "Track Medicines", path: "#" },
-  { icon: FileText, label: "Medical Records", path: "#" },
+  { icon: Calendar, label: "Book Appointment", path: "/patient/book" },
+  { icon: FileText, label: "My Appointments", path: "/patient/appointments" },
+  { icon: Users, label: "Doctors", path: "/patient/doctors" },
+  { icon: Bell, label: "Notifications", path: "/patient/notifications" },
+  { icon: User, label: "Profile", path: "/patient/profile" },
 ];
 
 function Sidebar({ sidebarOpen, setSidebarOpen }) {
   const location = useLocation();
+  const navigate = useNavigate();
+
+  const handleNavClick = (item) => {
+    if (item.action === "book") {
+      navigate(item.path);
+    }
+    setSidebarOpen(false);
+  };
 
   return (
     <>
@@ -72,12 +82,12 @@ function Sidebar({ sidebarOpen, setSidebarOpen }) {
               <Link
                 key={item.label}
                 to={item.path}
+                onClick={() => handleNavClick(item)}
                 className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 decoration-transparent ${
                   isActive 
                     ? "bg-brand-primary text-white shadow-md shadow-brand-primary/20 scale-[1.02]" 
                     : "text-white/85 hover:bg-white/10 hover:text-white"
                 }`}
-                onClick={() => setSidebarOpen(false)}
               >
                 <Icon size={18} className={isActive ? "text-white" : "text-white/70"} />
                 <span>{item.label}</span>
@@ -92,6 +102,12 @@ function Sidebar({ sidebarOpen, setSidebarOpen }) {
 
 function TopHeader({ setSidebarOpen }) {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    sessionStorage.clear();
+    navigate("/login");
+  };
 
   return (
     <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-gray-100 bg-white px-6 shadow-xs">
@@ -144,11 +160,31 @@ function TopHeader({ setSidebarOpen }) {
 
           {showProfileMenu && (
             <div className="absolute right-0 mt-2 w-48 rounded-xl border border-gray-100 bg-white p-1.5 shadow-xl ring-1 ring-black/5 animate-fadeIn">
-              <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                <Settings size={15} className="text-gray-400" />
-                Settings
+              <button 
+                onClick={() => { navigate("/patient/profile"); setShowProfileMenu(false); }}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                <User size={15} className="text-gray-400" />
+                Profile
               </button>
-              <button className="flex w-full items-center gap-2 rounded-lg border-t border-gray-50 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition-colors">
+              <button 
+                onClick={() => { navigate("/patient/profile/edit"); setShowProfileMenu(false); }}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                <Settings size={15} className="text-gray-400" />
+                Complete Profile
+              </button>
+              <button 
+                onClick={() => { navigate("/patient/profile/change-password"); setShowProfileMenu(false); }}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                <Settings size={15} className="text-gray-400" />
+                Change Password
+              </button>
+              <button 
+                onClick={handleLogout}
+                className="flex w-full items-center gap-2 rounded-lg border-t border-gray-50 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition-colors"
+              >
                 <LogOut size={15} className="text-red-400" />
                 Logout
               </button>

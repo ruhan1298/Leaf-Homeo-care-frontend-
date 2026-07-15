@@ -10,12 +10,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@twilio/video-processors": "^2.0.0",
     "axios": "^1.18.1",
     "lucide-react": "^1.21.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^7.17.0",
-    "sweetalert2": "^11.26.25"
+    "sweetalert2": "^11.26.25",
+    "twilio-video": "^2.35.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.15",

@@ -424,7 +424,7 @@ export default function DoctorManagement() {
       if (doctorToEdit) {
         const payload = {
           ...doctorPayload,
-          doctorId: doctorToEdit.userId, // backend expects userId as doctorId
+          doctorId: doctorToEdit.id, // Use doctor table's primary key
         };
         const response = await updateDoctor(payload);
         if (response.status === 1) {

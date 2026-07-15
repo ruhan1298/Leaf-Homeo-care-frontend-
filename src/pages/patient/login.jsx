@@ -1,9 +1,67 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { Leaf, Lock, Mail, Eye, EyeOff } from "lucide-react";
+import Swal from "sweetalert2";
+import { Leaf, Lock, Mail, Eye, EyeOff, Loader2, AlertCircle } from "lucide-react";
+import { login } from "../../api/authApi";
 
 const Login = () => {
+  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
+  const [formData, setFormData] = useState({
+    email: "",
+    password: ""
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await login(formData);
+
+      if (response.status === 1) {
+        // Clear old data first to prevent conflicts
+        sessionStorage.clear();
+        
+        // Store token and user data in sessionStorage for multi-tab isolation
+        sessionStorage.setItem("token", response.data.token);
+        sessionStorage.setItem("user", JSON.stringify(response.data));
+
+        // Check if profile is complete
+        if (response.data.IsCompleteProfile === false) {
+          navigate("/patient/complete-profile");
+        } else {
+          navigate("/patient/dashboard");
+        }
+      } else {
+        Swal.fire({
+          icon: "error",
+          title: "Error",
+          text: response.message || "Login failed",
+          confirmButtonColor: "#10b981"
+        });
+      }
+    } catch (err) {
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: err.response?.data?.message || "Something went wrong. Please try again.",
+        confirmButtonColor: "#10b981"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f2faf2] via-white to-brand-light flex items-center justify-center p-6 relative overflow-hidden font-sans">
@@ -25,8 +83,16 @@ const Login = () => {
           </p>
         </div>
 
+        {/* Error Message */}
+        {error && (
+          <div className="mb-6 flex items-center gap-2 p-4 bg-red-50 rounded-xl border border-red-200 text-red-600">
+            <AlertCircle className="h-5 w-5" />
+            <p className="text-sm font-medium">{error}</p>
+          </div>
+        )}
+
         {/* Form */}
-        <form className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-5">
           {/* Email */}
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block">
@@ -38,6 +104,9 @@ const Login = () => {
               </span>
               <input
                 type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
                 placeholder="patient@email.com"
                 className="w-full h-11 pl-10 pr-4 rounded-xl border border-gray-200 text-sm outline-hidden transition-all bg-gray-50/50 focus:bg-white focus:ring-1 focus:ring-brand-primary focus:border-brand-primary font-medium"
                 required
@@ -56,6 +125,9 @@ const Login = () => {
               </span>
               <input
                 type={showPassword ? "text" : "password"}
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
                 placeholder="••••••••"
                 className="w-full h-11 pl-10 pr-12 rounded-xl border border-gray-200 text-sm outline-hidden transition-all bg-gray-50/50 focus:bg-white focus:ring-1 focus:ring-brand-primary focus:border-brand-primary font-medium"
                 required
@@ -83,9 +155,17 @@ const Login = () => {
           {/* Login Button */}
           <button
             type="submit"
-            className="w-full h-11 bg-brand-primary hover:bg-brand-hover text-white font-bold rounded-xl shadow-md shadow-brand-primary/20 transition-all cursor-pointer flex items-center justify-center"
+            disabled={loading}
+            className="w-full h-11 bg-brand-primary hover:bg-brand-hover text-white font-bold rounded-xl shadow-md shadow-brand-primary/20 transition-all cursor-pointer flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Sign In
+            {loading ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                Signing In...
+              </>
+            ) : (
+              "Sign In"
+            )}
           </button>
         </form>
 

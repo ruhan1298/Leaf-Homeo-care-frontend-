@@ -3,24 +3,30 @@ import axios from "axios";
 console.log("Mera Backend URL hai:", import.meta.env.VITE_API_URL);
 
 const API = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000", 
+  baseURL: process.env.REACT_APP_API_URL || "http://localhost:5000",
 });
 
 // Attach token automatically to every request made with this instance
 API.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
+  const token = sessionStorage.getItem("token");
   if (token) {
     config.headers.Authorization = `${token}`;
   }
   return config;
 });
 
-export const adminLogin = async (data) => {
-  const response = await API.post(
-    "/api/v1/auth/login",
-    data
-  );
+export const register = async (data) => {
+  const response = await API.post("/api/v1/auth/register", data);
+  return response.data;
+};
 
+export const login = async (data) => {
+  const response = await API.post("/api/v1/auth/login", data);
+  return response.data;
+};
+
+export const adminLogin = async (data) => {
+  const response = await API.post("/api/v1/auth/login", data);
   return response.data;
 };
 
@@ -30,7 +36,11 @@ export const getUser = async () => {
 };
 
 export const updateProfile = async (data) => {
-  const response = await API.post("/api/v1/auth/update-profile", data);
+  const response = await API.post("/api/v1/auth/update-profile", data, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  });
   return response.data;
 };
 
@@ -51,5 +61,15 @@ export const verifyOTP = async (data) => {
 
 export const resetPassword = async (data) => {
   const response = await API.post("/api/v1/auth/reset-password", data);
+  return response.data;
+};
+
+export const deleteUser = async () => {
+  const response = await API.get("/api/v1/auth/delete-user");
+  return response.data;
+};
+
+export const getNotifications = async () => {
+  const response = await API.get("/api/v1/auth/get-notifications");
   return response.data;
 };

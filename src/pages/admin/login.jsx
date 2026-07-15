@@ -25,7 +25,12 @@ const AdminLogin = () => {
     try {
       const res = await adminLogin(formData);
       if (res.status === 1) {
-        localStorage.setItem("token", res.data.token);
+        // Clear old data first to prevent conflicts
+        sessionStorage.clear();
+        
+        // Store token and user data in sessionStorage for multi-tab isolation
+        sessionStorage.setItem("token", res.data.token);
+        sessionStorage.setItem("user", JSON.stringify(res.data));
         Swal.fire({
           icon: 'success',
           title: 'Success',

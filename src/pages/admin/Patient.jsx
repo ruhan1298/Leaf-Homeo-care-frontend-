@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback } from "react";
 import Swal from "sweetalert2";
 import { Search, MoreVertical, Mail, Phone, ChevronDown, MapPin, Calendar, Edit, Trash2, X, Save, User } from "lucide-react";
 import AdminLayout from "../../components/AdminLayout";
-import { getPatients, updatePatient, deletePatient } from "../../api/patientApi";
+import { getPatients, updatePatient, deletePatient } from "../../api/appointmentApi";
+
 
 const ENTRIES_OPTIONS = [5, 10, 25, 50];
 
