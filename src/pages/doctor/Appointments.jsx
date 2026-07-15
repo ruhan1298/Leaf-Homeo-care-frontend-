@@ -21,6 +21,7 @@ const getStatusColor = (status) => {
       return "bg-yellow-100 text-yellow-700 border-yellow-200";
     case "accepted":
     case "confirmed":
+    case "paid":
       return "bg-green-100 text-green-700 border-green-200";
     case "completed":
       return "bg-blue-100 text-blue-700 border-blue-200";
@@ -38,6 +39,7 @@ const getStatusIcon = (status) => {
       return <Clock className="h-4 w-4" />;
     case "accepted":
     case "confirmed":
+    case "paid":
       return <CheckCircle className="h-4 w-4" />;
     case "completed":
       return <CheckCircle className="h-4 w-4" />;
@@ -272,7 +274,7 @@ export default function DoctorAppointments() {
             />
           </div>
           <div className="flex gap-2">
-            {["all", "Pending", "Accepted", "Completed", "Cancelled"].map((status) => (
+            {["all", "Pending", "Accepted", "Paid", "Completed", "Cancelled"].map((status) => (
               <button
                 key={status}
                 onClick={() => setFilter(status.toLowerCase())}
@@ -366,7 +368,7 @@ export default function DoctorAppointments() {
                         </button>
                       </>
                     )}
-                    {appointment.status.toLowerCase() === "accepted" && (
+                    {(appointment.status.toLowerCase() === "accepted" || appointment.status.toLowerCase() === "paid" || appointment.status.toLowerCase() === "confirmed") && (
                       <>
                         <button
                           onClick={() => handleComplete(appointment.id)}

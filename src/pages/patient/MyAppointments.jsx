@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import PatientLayout from "../../components/PatientLayout";
 import { getMyAppointments, cancelAppointment } from "../../api/appointmentApi";
+import Payment from "../../components/Payment";
 import Swal from "sweetalert2";
 import {
   Calendar,
@@ -116,6 +117,7 @@ export default function MyAppointments() {
         return "bg-yellow-100 text-yellow-700 border-yellow-200";
       case "accepted":
       case "confirmed":
+      case "paid":
         return "bg-green-100 text-green-700 border-green-200";
       case "completed":
         return "bg-blue-100 text-blue-700 border-blue-200";
@@ -132,6 +134,7 @@ export default function MyAppointments() {
         return <Clock className="h-4 w-4" />;
       case "accepted":
       case "confirmed":
+      case "paid":
         return <CheckCircle className="h-4 w-4" />;
       case "completed":
         return <CheckCircle className="h-4 w-4" />;
@@ -216,7 +219,7 @@ export default function MyAppointments() {
             />
           </div>
           <div className="flex gap-2">
-            {["all", "Pending", "Confirmed", "Completed", "Cancelled"].map((status) => (
+            {["all", "Pending", "Confirmed", "Paid", "Completed", "Cancelled"].map((status) => (
               <button
                 key={status}
                 onClick={() => setFilter(status.toLowerCase())}
@@ -296,6 +299,25 @@ export default function MyAppointments() {
 
                   {/* Actions */}
                   <div className="flex items-center gap-2">
+                    {appointment.status.toLowerCase() === "accepted" && (
+                      <Payment
+                        appointmentId={appointment.id}
+                        amount={appointment.consultationFee || 500}
+                        onSuccess={() => {
+                          Swal.fire({
+                            icon: "success",
+                            title: "Payment Successful",
+                            text: "Your appointment is now confirmed.",
+                            timer: 2000,
+                            showConfirmButton: false,
+                          });
+                          fetchAppointments();
+                        }}
+                        onCancel={() => {
+                          console.log("Payment cancelled");
+                        }}
+                      />
+                    )}
                     {appointment.status.toLowerCase() === "pending" || appointment.status.toLowerCase() === "accepted" ? (
                       <button
                         onClick={() => handleCancelAppointment(appointment.id)}
@@ -310,7 +332,7 @@ export default function MyAppointments() {
                         Cancel
                       </button>
                     ) : null}
-                    {appointment.status.toLowerCase() === "accepted" && (
+                    {(appointment.status.toLowerCase() === "accepted" || appointment.status.toLowerCase() === "paid" || appointment.status.toLowerCase() === "confirmed") && (
                       <>
                         {canJoinCall(appointment.appointmentDateTime) ? (
                           <button 
