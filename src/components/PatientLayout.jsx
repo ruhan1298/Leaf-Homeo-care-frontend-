@@ -25,6 +25,7 @@ const navItems = [
   { icon: Calendar, label: "Book Appointment", path: "/patient/book" },
   { icon: FileText, label: "My Appointments", path: "/patient/appointments" },
   { icon: Users, label: "Doctors", path: "/patient/doctors" },
+  { icon: MessageSquare, label: "Chat", path: "/patient/chat" },
   { icon: Bell, label: "Notifications", path: "/patient/notifications" },
   { icon: User, label: "Profile", path: "/patient/profile" },
 ];

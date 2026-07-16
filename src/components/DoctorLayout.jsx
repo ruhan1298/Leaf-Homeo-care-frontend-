@@ -13,7 +13,8 @@ import {
   X,
   User,
   Stethoscope,
-  Clock
+  Clock,
+  MessageSquare
 } from "lucide-react";
 
 // Brand color - kept for compatibility
@@ -25,6 +26,7 @@ const navItems = [
   { icon: Calendar, label: "Appointment Requests", path: "/doctor/appointment-requests" },
   { icon: FileText, label: "Consultation History", path: "/doctor/consultation-history" },
   { icon: Clock, label: "Availability", path: "/doctor/availability" },
+  { icon: MessageSquare, label: "Chat", path: "/doctor/chat" },
   { icon: Bell, label: "Notifications", path: "/doctor/notifications" },
   { icon: User, label: "Profile", path: "/doctor/profile" },
 ];

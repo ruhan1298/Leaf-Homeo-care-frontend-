@@ -33,6 +33,8 @@ import DoctorEditProfile from "../pages/doctor/EditProfile";
 import DoctorChangePassword from "../pages/doctor/ChangePassword";
 import PatientVideoCall from "../pages/patient/VideoCall";
 import DoctorVideoCall from "../pages/doctor/VideoCall";
+import PublicDoctorProfile from "../pages/PublicDoctorProfile";
+import Chat from "../pages/Chat";
 
 
 function AppRouter() {
@@ -43,6 +45,8 @@ function AppRouter() {
       <Route path="/login" element={<Login />} />
       <Route path="/doctor/login" element={<DoctorLogin />} />
       <Route path="/admin/login" element={<AdminLogin />} />
+      {/* Public route - no authentication required */}
+      <Route path="/doctors/:id" element={<PublicDoctorProfile />} />
       <Route path="/admin/forgot-password" element={<AdminForgotPassword />} />
       <Route path="/admin/dashboard" element={<ProtectedRoute allowedRole="admin"><AdminDashboard /></ProtectedRoute>} />
       <Route path="/admin/doctors" element={<ProtectedRoute allowedRole="admin"><AdminDoctors /></ProtectedRoute>} />
@@ -72,6 +76,8 @@ function AppRouter() {
       <Route path="/doctor/profile/change-password" element={<ProtectedRoute allowedRole="doctor"><DoctorChangePassword /></ProtectedRoute>} />
       <Route path="/patient/video-call" element={<ProtectedRoute allowedRole="patient" requireCompleteProfile><PatientVideoCall /></ProtectedRoute>} />
       <Route path="/doctor/video-call" element={<ProtectedRoute allowedRole="doctor"><DoctorVideoCall /></ProtectedRoute>} />
+      <Route path="/patient/chat" element={<ProtectedRoute allowedRole="patient" requireCompleteProfile><Chat /></ProtectedRoute>} />
+      <Route path="/doctor/chat" element={<ProtectedRoute allowedRole="doctor"><Chat /></ProtectedRoute>} />
     </Routes>
   );
 }

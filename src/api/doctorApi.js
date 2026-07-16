@@ -121,3 +121,8 @@ export const getDoctorConsultationHistory = async (filters) => {
   const response = await API.post("/api/v1/doctor/consultation-history", filters);
   return response.data;
 };
+
+export const getPublicDoctorProfile = async (doctorId) => {
+  const response = await API.get(`/api/v1/doctor/public/${doctorId}`);
+  return response.data;
+};

@@ -17,6 +17,7 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^7.17.0",
+    "socket.io-client": "^4.8.3",
     "sweetalert2": "^11.26.25",
     "twilio-video": "^2.35.0"
   },

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Calendar, Clock, Video, Check, X, Filter, Loader2, AlertCircle, CheckCircle, XCircle } from "lucide-react";
+import { Search, Calendar, Clock, Video, Check, X, Filter, Loader2, AlertCircle, CheckCircle, XCircle, MessageSquare } from "lucide-react";
 import DoctorLayout from "../../components/DoctorLayout";
 import { getDoctorAppointments, acceptAppointment, rejectAppointment } from "../../api/doctorApi";
 import Swal from "sweetalert2";
@@ -362,6 +362,15 @@ export default function DoctorAppointments() {
 
                   {/* Actions */}
                   <div className="flex items-center gap-2">
+                    {appointment.patientUserId && (
+                      <button
+                        onClick={() => navigate("/doctor/chat", { state: { selectUserId: appointment.patientUserId } })}
+                        className="flex items-center gap-2 px-4 py-2 bg-brand-light text-brand-dark rounded-xl font-medium hover:bg-brand-light/85 transition-all text-sm"
+                      >
+                        <MessageSquare size={15} />
+                        Chat
+                      </button>
+                    )}
                     {appointment.status.toLowerCase() === "pending" && (
                       <>
                         <button
