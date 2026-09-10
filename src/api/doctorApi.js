@@ -23,7 +23,12 @@ export const getDoctors = async (page, limit, search) => {
 };
 
 export const getExpertDoctors = async () => {
-  const response = await API.get("/api/v1/patient/get-expert-doctors");
+  const response = await API.post("/api/v1/patient/get-expert-doctors");
+  return response.data;
+};
+
+export const getDoctorById = async (doctorId) => {
+  const response = await API.post("/api/v1/patient/get-doctor-details", { doctorId });
   return response.data;
 };
 

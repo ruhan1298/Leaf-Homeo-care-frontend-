@@ -3,42 +3,29 @@ import DoctorLayout from "../../components/DoctorLayout";
 import { 
   Clock, 
   Loader2, 
-  Calendar, 
   Save,
-  Check
+  Plus,
+  Trash2,
+  Bell,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
-import { getDoctorAvailability, addAvailability } from "../../api/doctorApi";
+import { getDoctorAvailability, addAvailability, deleteAvailability } from "../../api/doctorApi";
 import Swal from "sweetalert2";
 
 const DAYS_OF_WEEK = [
-  "monday",
-  "tuesday", 
-  "wednesday",
-  "thursday",
-  "friday",
-  "saturday",
-  "sunday"
+  { value: "monday", label: "Monday" },
+  { value: "tuesday", label: "Tuesday" },
+  { value: "wednesday", label: "Wednesday" },
+  { value: "thursday", label: "Thursday" },
+  { value: "friday", label: "Friday" },
+  { value: "saturday", label: "Saturday" },
+  { value: "sunday", label: "Sunday" }
 ];
 
-const DAY_LABELS = {
-  monday: "Monday",
-  tuesday: "Tuesday",
-  wednesday: "Wednesday",
-  thursday: "Thursday",
-  friday: "Friday",
-  saturday: "Saturday",
-  sunday: "Sunday"
-};
-
 export default function Availability() {
-  const [weeklyAvailability, setWeeklyAvailability] = useState(
-    DAYS_OF_WEEK.map(day => ({
-      dayOfWeek: day,
-      isAvailable: false,
-      startTime: "",
-      endTime: ""
-    }))
-  );
+  const [dayWiseSlots, setDayWiseSlots] = useState({});
+  const [expandedDays, setExpandedDays] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -51,23 +38,44 @@ export default function Availability() {
       setLoading(true);
       const response = await getDoctorAvailability();
       if (response.status === 1 && response.data) {
-        const availabilityMap = {};
-        response.data.forEach(slot => {
-          availabilityMap[slot.dayOfWeek] = {
-            isAvailable: true,
-            startTime: slot.startTime ? slot.startTime.substring(0, 5) : "",
-            endTime: slot.endTime ? slot.endTime.substring(0, 5) : ""
-          };
+        const organizedSlots = {};
+        
+        // Initialize all days with empty arrays
+        DAYS_OF_WEEK.forEach(day => {
+          organizedSlots[day.value] = [];
         });
 
-        setWeeklyAvailability(
-          DAYS_OF_WEEK.map(day => ({
-            dayOfWeek: day,
-            isAvailable: availabilityMap[day]?.isAvailable || false,
-            startTime: availabilityMap[day]?.startTime || "",
-            endTime: availabilityMap[day]?.endTime || ""
-          }))
-        );
+        // Populate with existing slots
+        Object.keys(response.data).forEach(day => {
+          response.data[day].forEach(slotData => {
+            if (typeof slotData === 'object' && slotData.id) {
+              organizedSlots[day].push({
+                id: Date.now() + Math.random(),
+                dbId: slotData.id,
+                time: slotData.startTime,
+                isNew: false,
+                applyToAllDays: false
+              });
+            } else {
+              organizedSlots[day].push({
+                id: Date.now() + Math.random(),
+                dbId: null,
+                time: typeof slotData === 'string' ? slotData : slotData.startTime,
+                isNew: false,
+                applyToAllDays: false
+              });
+            }
+          });
+        });
+
+        setDayWiseSlots(organizedSlots);
+        
+        // Expand all days by default
+        const expanded = {};
+        DAYS_OF_WEEK.forEach(day => {
+          expanded[day.value] = true;
+        });
+        setExpandedDays(expanded);
       }
     } catch (error) {
       console.error("Error fetching availability:", error);
@@ -76,73 +84,262 @@ export default function Availability() {
     }
   };
 
-  const handleToggleDay = (dayOfWeek) => {
-    setWeeklyAvailability(prev =>
-      prev.map(day =>
-        day.dayOfWeek === dayOfWeek
-          ? { ...day, isAvailable: !day.isAvailable }
-          : day
-      )
-    );
+  const toggleDayExpansion = (dayValue) => {
+    setExpandedDays(prev => ({
+      ...prev,
+      [dayValue]: !prev[dayValue]
+    }));
   };
 
-  const handleTimeChange = (dayOfWeek, field, value) => {
-    setWeeklyAvailability(prev =>
-      prev.map(day =>
-        day.dayOfWeek === dayOfWeek
-          ? { ...day, [field]: value }
-          : day
+  const addTimeSlot = (dayValue) => {
+    setDayWiseSlots(prev => ({
+      ...prev,
+      [dayValue]: [
+        ...prev[dayValue],
+        {
+          id: Date.now(),
+          dbId: null,
+          time: "09:00",
+          isNew: true,
+          applyToAllDays: false
+        }
+      ]
+    }));
+  };
+
+  const removeTimeSlot = async (dayValue, slotId) => {
+    const slot = dayWiseSlots[dayValue].find(s => s.id === slotId);
+    
+    const result = await Swal.fire({
+      title: "Are you sure?",
+      text: slot?.applyToAllDays 
+        ? "This time slot will be removed from all days." 
+        : "This time slot will be removed from your availability.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#00b100",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "Yes, remove it!",
+      cancelButtonText: "Cancel"
+    });
+
+    if (result.isConfirmed) {
+      if (slot && slot.dbId) {
+        try {
+          const response = await deleteAvailability(slot.dbId);
+          if (response.status === 1) {
+            await Swal.fire({
+              icon: "success",
+              title: "Deleted!",
+              text: "Time slot has been deleted from database.",
+              confirmButtonColor: "#00b100"
+            });
+          } else {
+            await Swal.fire({
+              icon: "error",
+              title: "Error",
+              text: response.message || "Failed to delete time slot",
+              confirmButtonColor: "#00b100"
+            });
+            return;
+          }
+        } catch (error) {
+          console.error("Error deleting availability:", error);
+          await Swal.fire({
+            icon: "error",
+            title: "Error",
+            text: "Failed to delete time slot",
+            confirmButtonColor: "#00b100"
+          });
+          return;
+        }
+      }
+      
+      if (slot?.applyToAllDays) {
+        // Remove from all days
+        setDayWiseSlots(prev => {
+          const updated = { ...prev };
+          DAYS_OF_WEEK.forEach(day => {
+            updated[day.value] = updated[day.value].filter(s => s.time !== slot.time);
+          });
+          return updated;
+        });
+      } else {
+        // Remove from specific day only
+        setDayWiseSlots(prev => ({
+          ...prev,
+          [dayValue]: prev[dayValue].filter(slot => slot.id !== slotId)
+        }));
+      }
+      
+      if (!slot || !slot.dbId) {
+        await Swal.fire({
+          icon: "success",
+          title: "Removed!",
+          text: "Time slot has been removed.",
+          confirmButtonColor: "#00b100"
+        });
+      }
+    }
+  };
+
+  const updateTimeSlot = (dayValue, slotId, field, value) => {
+    // Just update the specific slot, don't touch other days
+    setDayWiseSlots(prev => ({
+      ...prev,
+      [dayValue]: prev[dayValue].map(slot =>
+        slot.id === slotId ? { ...slot, [field]: value } : slot
       )
-    );
+    }));
+  };
+
+  const toggleApplyToAllDays = (dayValue, slotId) => {
+    const slot = dayWiseSlots[dayValue].find(s => s.id === slotId);
+    if (!slot) return;
+
+    if (slot.applyToAllDays) {
+      // Uncheck - remove this time slot from all other days
+      setDayWiseSlots(prev => {
+        const updated = { ...prev };
+        DAYS_OF_WEEK.forEach(day => {
+          if (day.value !== dayValue) {
+            updated[day.value] = updated[day.value].filter(s => s.time !== slot.time);
+          }
+        });
+        // Update the current slot
+        updated[dayValue] = updated[dayValue].map(s =>
+          s.id === slotId ? { ...s, applyToAllDays: false } : s
+        );
+        return updated;
+      });
+    } else {
+      // Check - add this time slot to all other days (always add, even if exists)
+      setDayWiseSlots(prev => {
+        const updated = { ...prev };
+        DAYS_OF_WEEK.forEach(day => {
+          if (day.value !== dayValue) {
+            // Always add the slot, don't check if it exists
+            updated[day.value] = [
+              ...updated[day.value],
+              {
+                id: Date.now() + Math.random(),
+                dbId: null,
+                time: slot.time,
+                isNew: true,
+                applyToAllDays: true
+              }
+            ];
+          }
+        });
+        // Update the current slot
+        updated[dayValue] = updated[dayValue].map(s =>
+          s.id === slotId ? { ...s, applyToAllDays: true } : s
+        );
+        return updated;
+      });
+    }
   };
 
   const handleSaveAvailability = async () => {
-    const availableDays = weeklyAvailability.filter(day => day.isAvailable);
+    const totalSlots = Object.values(dayWiseSlots).flat().length;
     
-    if (availableDays.length === 0) {
+    if (totalSlots === 0) {
       Swal.fire({
         icon: "warning",
         title: "No Availability",
-        text: "Please enable at least one day for availability",
+        text: "Please add at least one time slot",
         confirmButtonColor: "#00b100"
       });
       return;
     }
 
-    const invalidDays = availableDays.filter(day => !day.startTime || !day.endTime);
-    if (invalidDays.length > 0) {
-      Swal.fire({
-        icon: "error",
-        title: "Missing Time",
-        text: "Please set both start and end time for all enabled days",
-        confirmButtonColor: "#00b100"
-      });
-      return;
+    // Validate entries
+    for (const dayValue of DAYS_OF_WEEK.map(d => d.value)) {
+      for (const slot of dayWiseSlots[dayValue]) {
+        if (!slot.time) {
+          Swal.fire({
+            icon: "warning",
+            title: "Invalid Time",
+            text: "Please set a time for each slot",
+            confirmButtonColor: "#00b100"
+          });
+          return;
+        }
+      }
     }
 
     try {
       setSaving(true);
-      const payload = {
-        availability: availableDays.map(day => ({
-          dayOfWeek: day.dayOfWeek,
-          startTime: `${day.startTime}:00`,
-          endTime: `${day.endTime}:00`
-        }))
-      };
+      
+      // Collect all slots (both new and existing) for saving
+      const availabilityMap = {};
+      
+      // First, collect all applyToAllDays times from current state
+      const applyToAllTimes = new Set();
+      Object.keys(dayWiseSlots).forEach(dayValue => {
+        dayWiseSlots[dayValue].forEach(slot => {
+          if (slot.applyToAllDays) {
+            applyToAllTimes.add(slot.time);
+          }
+        });
+      });
+      
+      // Now build the availability map for each day
+      DAYS_OF_WEEK.forEach(day => {
+        const daySlots = [];
+        
+        // Add applyToAllDays times
+        applyToAllTimes.forEach(time => {
+          daySlots.push(time);
+        });
+        
+        // Add day-specific times (not applyToAllDays) from current state
+        dayWiseSlots[day.value].forEach(slot => {
+          if (!slot.applyToAllDays) {
+            daySlots.push(slot.time);
+          }
+        });
+        
+        // Remove duplicates
+        const uniqueSlots = [...new Set(daySlots)];
+        
+        if (uniqueSlots.length > 0) {
+          availabilityMap[day.value] = uniqueSlots;
+        }
+      });
+      
+      if (Object.keys(availabilityMap).length > 0) {
+        const payload = {
+          availability: Object.keys(availabilityMap).map(day => ({
+            dayOfWeek: day,
+            slots: availabilityMap[day]
+          }))
+        };
+        
+        console.log('Sending payload:', JSON.stringify(payload, null, 2));
 
-      const response = await addAvailability(payload.availability);
-      if (response.status === 1) {
+        const response = await addAvailability(payload.availability);
+        if (response.status === 1) {
+          await fetchAvailability();
+          Swal.fire({
+            icon: "success",
+            title: "Success",
+            text: "Availability saved successfully",
+            confirmButtonColor: "#00b100"
+          });
+        } else {
+          Swal.fire({
+            icon: "error",
+            title: "Error",
+            text: response.message || "Failed to save availability",
+            confirmButtonColor: "#00b100"
+          });
+        }
+      } else {
         Swal.fire({
           icon: "success",
           title: "Success",
-          text: "Availability saved successfully",
-          confirmButtonColor: "#00b100"
-        });
-      } else {
-        Swal.fire({
-          icon: "error",
-          title: "Error",
-          text: response.message || "Failed to save availability",
+          text: "No new slots to save",
           confirmButtonColor: "#00b100"
         });
       }
@@ -171,88 +368,108 @@ export default function Availability() {
 
   return (
     <DoctorLayout>
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-extrabold text-gray-900 mb-2">Weekly Availability</h1>
-          <p className="text-gray-500">Set your available days and time slots for appointments</p>
+          <p className="text-gray-500">Manage your available time slots for each day</p>
         </div>
 
         {/* Info Card */}
         <div className="bg-brand-light/30 border border-brand-primary/10 rounded-2xl p-6 mb-8">
           <div className="flex items-start gap-4">
             <div className="w-12 h-12 rounded-xl bg-brand-primary/10 flex items-center justify-center shrink-0">
-              <Clock className="h-6 w-6 text-brand-primary" />
+              <Bell className="h-6 w-6 text-brand-primary" />
             </div>
             <div>
               <h3 className="text-lg font-bold text-gray-900 mb-2">How it works</h3>
               <p className="text-sm text-gray-600 leading-relaxed">
-                Enable the days you're available and set your working hours for each day. 
-                Patients can only book appointments during your configured time slots.
+                Add time slots for specific days. After setting a time, check "Apply to all days" to automatically 
+                add the same time slot to all other days. Uncheck to remove from other days.
               </p>
             </div>
           </div>
         </div>
 
-        {/* Days Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-8">
-          {weeklyAvailability.map((day) => (
+        {/* Day-wise Sections */}
+        <div className="space-y-3 mb-8">
+          {DAYS_OF_WEEK.map((day) => (
             <div
-              key={day.dayOfWeek}
-              className={`bg-white border-2 rounded-2xl p-5 transition-all ${
-                day.isAvailable 
-                  ? 'border-brand-primary/30 shadow-sm' 
-                  : 'border-gray-100'
-              }`}
+              key={day.value}
+              className="bg-white border border-gray-200 rounded-xl overflow-hidden"
             >
               {/* Day Header */}
-              <div className="flex items-center justify-between mb-4">
+              <button
+                onClick={() => toggleDayExpansion(day.value)}
+                className="w-full px-4 py-3 flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors"
+              >
                 <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                    day.isAvailable ? 'bg-brand-primary text-white' : 'bg-gray-100 text-gray-500'
-                  }`}>
-                    <Calendar className="h-5 w-5" />
-                  </div>
-                  <h3 className="text-base font-bold text-gray-900">{DAY_LABELS[day.dayOfWeek]}</h3>
+                  <span className="font-semibold text-gray-900">{day.label}</span>
+                  <span className="text-xs bg-brand-primary/10 text-brand-primary px-2 py-1 rounded-full">
+                    {dayWiseSlots[day.value]?.length || 0} slots
+                  </span>
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={day.isAvailable}
-                    onChange={() => handleToggleDay(day.dayOfWeek)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-brand-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-primary"></div>
-                </label>
-              </div>
+                {expandedDays[day.value] ? (
+                  <ChevronUp className="h-5 w-5 text-gray-500" />
+                ) : (
+                  <ChevronDown className="h-5 w-5 text-gray-500" />
+                )}
+              </button>
 
-              {/* Time Pickers */}
-              <div className="space-y-3">
-                <div>
-                  <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block mb-1.5">
-                    Start Time
-                  </label>
-                  <input
-                    type="time"
-                    value={day.startTime}
-                    onChange={(e) => handleTimeChange(day.dayOfWeek, 'startTime', e.target.value)}
-                    disabled={!day.isAvailable}
-                    className="w-full h-10 px-3 rounded-xl border-2 border-gray-200 text-sm focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                  />
+              {/* Slots Section */}
+              {expandedDays[day.value] && (
+                <div className="p-4 border-t border-gray-200">
+                  {/* Slots Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 mb-3">
+                    {dayWiseSlots[day.value]?.map((slot) => (
+                      <div
+                        key={slot.id}
+                        className={`flex flex-col gap-2 border rounded-lg p-2 ${
+                          slot.applyToAllDays 
+                            ? 'bg-brand-primary/10 border-brand-primary/30' 
+                            : 'bg-gray-50 border-gray-200'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="time"
+                            value={slot.time}
+                            onChange={(e) => updateTimeSlot(day.value, slot.id, 'time', e.target.value)}
+                            className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:border-brand-primary focus:outline-none"
+                          />
+                          <button
+                            onClick={() => removeTimeSlot(day.value, slot.id)}
+                            className="text-red-500 hover:text-red-700 transition-colors p-1"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            id={`apply-all-${slot.id}`}
+                            checked={slot.applyToAllDays || false}
+                            onChange={() => toggleApplyToAllDays(day.value, slot.id)}
+                            className="w-4 h-4 text-brand-primary border-gray-300 rounded focus:ring-brand-primary"
+                          />
+                          <label htmlFor={`apply-all-${slot.id}`} className="text-xs text-gray-600">
+                            Apply to all days
+                          </label>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Add Slot Button */}
+                  <button
+                    onClick={() => addTimeSlot(day.value)}
+                    className="flex items-center gap-2 text-sm text-brand-primary hover:text-brand-hover transition-colors"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add Time Slot for {day.label}
+                  </button>
                 </div>
-                <div>
-                  <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block mb-1.5">
-                    End Time
-                  </label>
-                  <input
-                    type="time"
-                    value={day.endTime}
-                    onChange={(e) => handleTimeChange(day.dayOfWeek, 'endTime', e.target.value)}
-                    disabled={!day.isAvailable}
-                    className="w-full h-10 px-3 rounded-xl border-2 border-gray-200 text-sm focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                  />
-                </div>
-              </div>
+              )}
             </div>
           ))}
         </div>

@@ -1,0 +1,117 @@
+/* Custom Toast Notification Styles */
+.toast-notification-popup {
+  border-radius: 12px !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15) !important;
+  border: 1px solid rgba(0, 0, 0, 0.05) !important;
+  margin: 16px !important;
+  max-width: 350px !important;
+}
+
+.toast-notification-popup .swal2-title {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.toast-notification-popup .swal2-html-container {
+  font-size: 12px !important;
+  margin: 4px 0 0 0 !important;
+  padding: 0 !important;
+  color: #6b7280 !important;
+}
+
+.toast-notification-popup .swal2-icon {
+  width: 32px !important;
+  height: 32px !important;
+  font-size: 20px !important;
+  margin: 0 !important;
+}
+
+.toast-notification-popup .swal2-close {
+  margin: 0 !important;
+  font-size: 16px !important;
+  color: #9ca3af !important;
+}
+
+.toast-notification-popup .swal2-close:hover {
+  color: #4b5563 !important;
+}
+
+/* Success toast */
+.toast-notification-popup.swal2-icon-success {
+  background-color: #f0fdf4 !important;
+  border-left: 4px solid #22c55e !important;
+}
+
+/* Error toast */
+.toast-notification-popup.swal2-icon-error {
+  background-color: #fef2f2 !important;
+  border-left: 4px solid #ef4444 !important;
+}
+
+/* Warning toast */
+.toast-notification-popup.swal2-icon-warning {
+  background-color: #fffbeb !important;
+  border-left: 4px solid #f59e0b !important;
+}
+
+/* Info toast */
+.toast-notification-popup.swal2-icon-info {
+  background-color: #eff6ff !important;
+  border-left: 4px solid #3b82f6 !important;
+}
+
+/* Appointment toast */
+.toast-notification-popup[data-type="appointment"] {
+  background-color: #f0f9ff !important;
+  border-left: 4px solid #0ea5e9 !important;
+}
+
+/* Payment toast */
+.toast-notification-popup[data-type="payment"] {
+  background-color: #f0fdf4 !important;
+  border-left: 4px solid #22c55e !important;
+}
+
+/* Reminder toast */
+.toast-notification-popup[data-type="reminder"] {
+  background-color: #fffbeb !important;
+  border-left: 4px solid #f59e0b !important;
+}
+
+/* Progress bar */
+.toast-notification-popup .swal2-timer-progress-bar {
+  background: rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Animation */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOutRight {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+.toast-notification-popup {
+  animation: slideInRight 0.3s ease-out !important;
+}
+
+.toast-notification-popup.swal2-hide {
+  animation: slideOutRight 0.3s ease-in !important;
+}

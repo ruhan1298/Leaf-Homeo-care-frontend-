@@ -1,30 +1,34 @@
-import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { 
-  LayoutDashboard, 
-  Stethoscope, 
-  Users, 
-  Calendar, 
-  CreditCard, 
-  Truck, 
-  BarChart3, 
-  Bell, 
-  Search, 
-  LogOut, 
-  Settings, 
-  Menu, 
+import { useState, useEffect } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import {
+  LayoutDashboard,
+  Stethoscope,
+  Users,
+  Calendar,
+  CreditCard,
+  Truck,
+  BarChart3,
+  Bell,
+  Search,
+  LogOut,
+  Settings,
+  Menu,
   X,
-  User
+  User,
+  FileText,
+  PenTool,
+  Percent
 } from "lucide-react";
-
-// Brand color - kept for compatibility
-export const BRAND = "#00B100";
+import { getNotifications } from "../api/authApi";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin/dashboard" },
   { icon: Stethoscope, label: "Doctors", path: "/admin/doctors" },
   { icon: Users, label: "Patients", path: "/admin/patients" },
   { icon: Calendar, label: "Appointments", path: "/admin/appointments" },
+  { icon: PenTool, label: "Blogs", path: "/admin/blogs" },
+  { icon: Percent, label: "Coupons", path: "/admin/coupons" },
+  { icon: FileText, label: "Legal Documents", path: "/admin/legal-documents" },
   { icon: CreditCard, label: "Payments", path: "/admin/payments" },
   { icon: Truck, label: "Courier Tracking", path: "/admin/courier" },
   { icon: BarChart3, label: "Reports", path: "/admin/reports" },
@@ -45,22 +49,22 @@ function Sidebar({ sidebarOpen, setSidebarOpen }) {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-brand-dark text-white transition-all duration-300 ease-in-out lg:static lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-gray-900 text-white transition-all duration-300 ease-in-out lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 lg:self-start ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         {/* Brand Header */}
         <div className="flex h-16 items-center justify-between px-6 border-b border-white/10">
           <Link to="/admin/dashboard" className="flex items-center gap-2.5 text-white decoration-transparent">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-primary shadow-lg shadow-brand-primary/30">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-green-600 shadow-lg shadow-green-600/30">
               🌿
             </span>
             <span className="font-sans text-lg font-bold tracking-tight">
               Leaf Homeo
             </span>
           </Link>
-          <button 
-            onClick={() => setSidebarOpen(false)} 
+          <button
+            onClick={() => setSidebarOpen(false)}
             className="rounded-lg p-1 hover:bg-white/10 lg:hidden text-white/80"
           >
             <X size={20} />
@@ -77,8 +81,8 @@ function Sidebar({ sidebarOpen, setSidebarOpen }) {
                 key={item.path}
                 to={item.path}
                 className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 decoration-transparent ${
-                  isActive 
-                    ? "bg-brand-primary text-white shadow-md shadow-brand-primary/20 scale-[1.02]" 
+                  isActive
+                    ? "bg-green-600 text-white shadow-md shadow-green-600/20 scale-[1.02]"
                     : "text-white/85 hover:bg-white/10 hover:text-white"
                 }`}
                 onClick={() => setSidebarOpen(false)}
@@ -96,6 +100,28 @@ function Sidebar({ sidebarOpen, setSidebarOpen }) {
 
 function TopHeader({ setSidebarOpen }) {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  const fetchNotifications = async () => {
+    try {
+      setLoading(true);
+      const response = await getNotifications();
+      if (response.status === 1) {
+        setNotifications(response.data || []);
+      }
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-gray-100 bg-white px-6 shadow-xs">
@@ -123,13 +149,56 @@ function TopHeader({ setSidebarOpen }) {
 
       {/* Right side: notifications + profile */}
       <div className="flex items-center gap-4">
-        <button
-          aria-label="Notifications"
-          className="relative rounded-xl p-2.5 text-gray-500 hover:bg-gray-50 transition-colors"
-        >
-          <Bell size={18} />
-          <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-red-500 ring-2 ring-white" />
-        </button>
+        <div className="relative">
+          <button
+            aria-label="Notifications"
+            onClick={() => setShowNotifications(!showNotifications)}
+            className="relative rounded-xl p-2.5 text-gray-500 hover:bg-gray-50 transition-colors"
+          >
+            <Bell size={18} />
+            {notifications.filter(n => !n.isRead).length > 0 && (
+              <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-red-500 ring-2 ring-white" />
+            )}
+          </button>
+
+          {showNotifications && (
+            <div className="absolute right-0 mt-2 w-80 rounded-xl border border-gray-100 bg-white p-2 shadow-xl ring-1 ring-black/5 animate-fadeIn">
+              <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100">
+                <h3 className="text-sm font-bold text-gray-900">Notifications</h3>
+                <span className="text-xs font-semibold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
+                  {notifications.filter(n => !n.isRead).length} new
+                </span>
+              </div>
+              <div className="max-h-80 overflow-y-auto py-2">
+                {notifications.length > 0 ? (
+                  notifications.map((notification) => (
+                    <div
+                      key={notification.id}
+                      className={`px-3 py-2.5 hover:bg-gray-50 cursor-pointer transition-colors ${
+                        !notification.isRead ? "bg-green-50/30" : ""
+                      }`}
+                    >
+                      <div className="flex items-start gap-2">
+                        {!notification.isRead && (
+                          <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-green-600 shrink-0" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-gray-900 truncate">Notification</p>
+                          <p className="text-[11px] text-gray-600 mt-0.5 line-clamp-2">{notification.message}</p>
+                          <p className="text-[10px] text-gray-400 mt-1">{new Date(notification.createdAt).toLocaleString()}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="px-3 py-8 text-center text-gray-500 text-sm">
+                    No notifications
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Profile Dropdown */}
         <div className="relative">
@@ -137,7 +206,7 @@ function TopHeader({ setSidebarOpen }) {
             onClick={() => setShowProfileMenu(!showProfileMenu)}
             className="flex items-center gap-2 rounded-xl p-1.5 hover:bg-gray-50 transition-colors"
           >
-            <div className="h-9 w-9 rounded-xl bg-brand-light flex items-center justify-center font-bold text-brand-dark text-sm border border-brand-primary/10">
+            <div className="h-9 w-9 rounded-xl bg-green-50 flex items-center justify-center font-bold text-green-700 text-sm border border-green-600/10">
               AD
             </div>
             <span className="text-xs text-gray-400 hidden sm:inline">▾</span>
@@ -185,10 +254,10 @@ export default function AdminLayout({ children }) {
     <div className="flex min-h-screen bg-[#F8F9FA] text-gray-800 font-sans antialiased">
       <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex flex-1 flex-col min-h-screen">
         <TopHeader setSidebarOpen={setSidebarOpen} />
         
-        <main className="flex-1 overflow-y-auto px-6 py-8 md:px-8">
+        <main className="flex-1 px-6 py-8 md:px-8 relative">
           <div className="mx-auto max-w-7xl">
             {children}
           </div>

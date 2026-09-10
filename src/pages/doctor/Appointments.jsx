@@ -6,30 +6,50 @@ import { getDoctorAppointments, acceptAppointment, rejectAppointment } from "../
 import Swal from "sweetalert2";
 
 const STATUS_STYLES = {
-  pending: "bg-yellow-100 text-yellow-700 border-yellow-200",
-  accepted: "bg-green-100 text-green-700 border-green-200",
-  confirmed: "bg-green-100 text-green-700 border-green-200",
-  paid: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  pending: "bg-amber-100 text-amber-700 border-amber-200",
+  accepted: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  confirmed: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  paid: "bg-teal-100 text-teal-700 border-teal-200",
   completed: "bg-blue-100 text-blue-700 border-blue-200",
-  rejected: "bg-red-100 text-red-700 border-red-200",
-  cancelled: "bg-red-100 text-red-700 border-red-200",
+  rejected: "bg-rose-100 text-rose-700 border-rose-200",
+  cancelled: "bg-rose-100 text-rose-700 border-rose-200",
 };
 
 const getStatusColor = (status) => {
   switch (status.toLowerCase()) {
     case "pending":
-      return "bg-yellow-100 text-yellow-700 border-yellow-200";
+      return "bg-amber-100 text-amber-700 border-amber-200";
     case "accepted":
     case "confirmed":
+      return "bg-emerald-100 text-emerald-700 border-emerald-200";
     case "paid":
-      return "bg-green-100 text-green-700 border-green-200";
+      return "bg-teal-100 text-teal-700 border-teal-200";
     case "completed":
       return "bg-blue-100 text-blue-700 border-blue-200";
     case "cancelled":
     case "rejected":
-      return "bg-red-100 text-red-700 border-red-200";
+      return "bg-rose-100 text-rose-700 border-rose-200";
     default:
       return "bg-gray-100 text-gray-700 border-gray-200";
+  }
+};
+
+const getStatusBorderColor = (status) => {
+  switch (status.toLowerCase()) {
+    case "pending":
+      return "border-l-amber-500";
+    case "accepted":
+    case "confirmed":
+      return "border-l-emerald-500";
+    case "paid":
+      return "border-l-teal-500";
+    case "completed":
+      return "border-l-blue-500";
+    case "cancelled":
+    case "rejected":
+      return "border-l-rose-500";
+    default:
+      return "border-l-gray-400";
   }
 };
 
@@ -54,11 +74,34 @@ const getStatusIcon = (status) => {
 const formatDate = (dateString) => {
   const date = new Date(dateString);
   return date.toLocaleDateString("en-US", {
-    weekday: "short",
     year: "numeric",
     month: "short",
     day: "numeric"
   });
+};
+
+const getInitials = (name) => {
+  if (!name) return "??";
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+};
+
+const getAvatarColor = (name) => {
+  if (!name) return "bg-gray-500";
+  const colors = [
+    "bg-emerald-500",
+    "bg-blue-500",
+    "bg-purple-500",
+    "bg-pink-500",
+    "bg-orange-500",
+    "bg-teal-500"
+  ];
+  const index = name.charCodeAt(0) % colors.length;
+  return colors[index];
 };
 
 const formatTime = (dateString) => {
@@ -106,6 +149,7 @@ export default function DoctorAppointments() {
   const [filter, setFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [actionLoadingId, setActionLoadingId] = useState(null);
+  const [selectedAppointments, setSelectedAppointments] = useState(new Set());
 
   useEffect(() => {
     const fetchAppointments = async () => {
@@ -252,10 +296,25 @@ export default function DoctorAppointments() {
   const handleComplete = async (id) => {
     setActionLoadingId(id);
     await new Promise(resolve => setTimeout(resolve, 500));
-    setAppointments(appointments.map(apt => 
+    setAppointments(appointments.map(apt =>
       apt.id === id ? { ...apt, status: "completed" } : apt
     ));
     setActionLoadingId(null);
+  };
+
+  const handleCheckboxChange = (appointmentId) => {
+    const newSelected = new Set(selectedAppointments);
+    if (newSelected.has(appointmentId)) {
+      newSelected.delete(appointmentId);
+    } else {
+      newSelected.add(appointmentId);
+    }
+    setSelectedAppointments(newSelected);
+  };
+
+  const getStatusCount = (status) => {
+    if (status === "all") return appointments.length;
+    return appointments.filter(app => app.status.toLowerCase() === status.toLowerCase()).length;
   };
 
   const filteredAppointments = appointments.filter(apt => {
@@ -292,7 +351,7 @@ export default function DoctorAppointments() {
               placeholder="Search by patient name..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 text-gray-800 font-medium"
+              className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 text-gray-800 font-medium text-sm shadow-sm"
             />
           </div>
           <div className="flex gap-2">
@@ -300,13 +359,20 @@ export default function DoctorAppointments() {
               <button
                 key={status}
                 onClick={() => setFilter(status.toLowerCase())}
-                className={`px-4 py-2 rounded-xl font-medium transition-all ${
+                className={`px-4 py-2.5 rounded-xl font-medium transition-all text-sm flex items-center gap-2 ${
                   filter === status.toLowerCase()
-                    ? "bg-brand-primary text-white"
-                    : "bg-white border-2 border-gray-200 text-gray-700 hover:border-brand-primary"
+                    ? "bg-brand-primary text-white border border-brand-primary shadow-md shadow-brand-primary/20"
+                    : "bg-white border border-gray-200 text-gray-700 hover:border-brand-primary hover:bg-gray-50"
                 }`}
               >
                 {status}
+                <span className={`text-xs px-2 py-0.5 rounded-full ${
+                  filter === status.toLowerCase()
+                    ? "bg-white/20 text-white"
+                    : "bg-gray-100 text-gray-600"
+                }`}>
+                  {getStatusCount(status)}
+                </span>
               </button>
             ))}
           </div>
@@ -314,58 +380,62 @@ export default function DoctorAppointments() {
 
         {/* Appointments List */}
         {filteredAppointments.length === 0 ? (
-          <div className="flex flex-col items-center justify-center min-h-[300px] gap-4">
+          <div className="flex flex-col items-center justify-center min-h-[300px] gap-4 p-8 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
             <Calendar className="h-12 w-12 text-gray-300" />
-            <p className="text-gray-500">No appointments found</p>
+            <p className="text-gray-500 font-medium">No appointments found</p>
           </div>
         ) : (
           <div className="space-y-4">
-            {filteredAppointments.map((appointment) => (
+            {filteredAppointments.map((appointment, index) => (
               <div
                 key={appointment.id}
-                className="bg-white border-2 border-gray-100 rounded-2xl p-6 hover:border-brand-primary/30 transition-all"
+                className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'} border border-gray-200 rounded-2xl p-6 hover:border-brand-primary/50 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200 shadow-sm border-l-4 ${getStatusBorderColor(appointment.status)}`}
               >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex flex-col lg:flex-row items-start lg:items-center gap-5 lg:gap-8 overflow-x-auto pb-2">
                   {/* Patient Info */}
-                  <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-brand-light to-brand-primary/20 overflow-hidden border-2 border-white shadow-md">
-                      <img
-                        src={appointment.patientImage}
-                        alt={appointment.patientName}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-gray-900 text-lg">{appointment.patientName}</h3>
-                      <p className="text-sm text-gray-500">{appointment.reason || appointment.symptoms}</p>
+                  <div className="flex items-center gap-4 min-w-[220px] flex-shrink-0">
+                    {appointment.patientImage ? (
+                      <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-brand-light to-brand-primary/20 overflow-hidden border-2 border-white shadow-md flex-shrink-0">
+                        <img
+                          src={appointment.patientImage}
+                          alt={appointment.patientName}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    ) : (
+                      <div className={`w-16 h-16 rounded-xl ${getAvatarColor(appointment.patientName)} flex items-center justify-center text-white font-bold text-xl shadow-md flex-shrink-0`}>
+                        {getInitials(appointment.patientName)}
+                      </div>
+                    )}
+                    <div className="flex-shrink-0">
+                      <h3 className="font-extrabold text-gray-900 text-lg">{appointment.patientName}</h3>
+                      <p className="text-xs text-gray-500 mt-1">{appointment.reason || appointment.symptoms || "No reason"}</p>
+                      <p className="text-xs font-mono text-gray-400">ID: {appointment.appointmentId}</p>
                     </div>
                   </div>
 
-                  {/* Appointment Details */}
-                  <div className="flex flex-col sm:flex-row gap-4 sm:gap-8">
-                    <div>
-                      <p className="text-xs text-gray-400 font-semibold mb-1">Date</p>
-                      <p className="text-sm font-bold text-gray-900">{formatDate(appointment.appointmentDateTime)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-400 font-semibold mb-1">Time</p>
-                      <p className="text-sm font-bold text-gray-900">{formatTime(appointment.appointmentDateTime)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-400 font-semibold mb-1">Status</p>
-                      <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold border ${getStatusColor(appointment.status)}`}>
+                  {/* Appointment Details - Compact Format */}
+                  <div className="flex items-center gap-3 min-w-[320px] flex-shrink-0">
+                    <div className="flex items-center gap-2 text-base">
+                      <span className="font-semibold text-gray-900">{formatDate(appointment.appointmentDateTime)}</span>
+                      <span className="text-gray-400">•</span>
+                      <span className="font-semibold text-gray-900">{formatTime(appointment.appointmentDateTime)}</span>
+                      <span className="text-gray-400">•</span>
+                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-sm font-bold border ${getStatusColor(appointment.status)}`}>
                         {getStatusIcon(appointment.status)}
                         {appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)}
                       </span>
+                      <span className="text-gray-400">•</span>
+                      <span className="text-xs text-brand-primary font-semibold">{appointment.requestType === "any_doctor" ? "Any Doctor" : appointment.requestType === "specific_doctor" ? "Specific Doctor" : appointment.requestType || "Any Doctor"}</span>
                     </div>
                   </div>
 
                   {/* Actions */}
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-3 flex-shrink-0 flex-wrap lg:flex-nowrap w-full lg:w-auto pl-0 lg:pl-6 border-l-0 lg:border-l border-gray-200 lg:ml-3">
                     {appointment.patientUserId && (
                       <button
                         onClick={() => navigate("/doctor/chat", { state: { selectUserId: appointment.patientUserId } })}
-                        className="flex items-center gap-2 px-4 py-2 bg-brand-light text-brand-dark rounded-xl font-medium hover:bg-brand-light/85 transition-all text-sm"
+                        className="flex items-center gap-2 px-4 py-2.5 h-10 min-w-[100px] justify-center bg-white text-brand-dark rounded-xl font-medium hover:bg-gray-50 transition-all text-sm border-2 border-brand-primary"
                       >
                         <MessageSquare size={15} />
                         Chat
@@ -376,7 +446,7 @@ export default function DoctorAppointments() {
                         <button
                           onClick={() => handleAccept(appointment.id)}
                           disabled={actionLoadingId === appointment.id}
-                          className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 rounded-xl font-medium hover:bg-emerald-100 transition-all disabled:opacity-50"
+                          className="flex items-center gap-2 px-4 py-2.5 h-10 min-w-[100px] justify-center bg-brand-primary text-white rounded-xl font-medium hover:bg-brand-hover transition-all disabled:opacity-50 text-sm"
                         >
                           {actionLoadingId === appointment.id ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
@@ -388,7 +458,7 @@ export default function DoctorAppointments() {
                         <button
                           onClick={() => handleReject(appointment.id)}
                           disabled={actionLoadingId === appointment.id}
-                          className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-xl font-medium hover:bg-red-100 transition-all disabled:opacity-50"
+                          className="flex items-center gap-2 px-4 py-2.5 h-10 min-w-[100px] justify-center bg-white text-brand-dark rounded-xl font-medium hover:bg-gray-50 transition-all disabled:opacity-50 text-sm border-2 border-brand-primary"
                         >
                           {actionLoadingId === appointment.id ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
@@ -404,7 +474,7 @@ export default function DoctorAppointments() {
                         <button
                           onClick={() => handleComplete(appointment.id)}
                           disabled={actionLoadingId === appointment.id}
-                          className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-xl font-medium hover:bg-brand-hover transition-all disabled:opacity-50"
+                          className="flex items-center gap-2 px-4 py-2.5 h-10 min-w-[100px] justify-center bg-brand-primary text-white rounded-xl font-medium hover:bg-brand-hover transition-all disabled:opacity-50 text-sm border-2 border-brand-primary"
                         >
                           {actionLoadingId === appointment.id ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
@@ -414,15 +484,23 @@ export default function DoctorAppointments() {
                           Complete
                         </button>
                         {canJoinCall(appointment.appointmentDateTime) ? (
-                          <button 
-                            onClick={() => navigate(`/doctor/video-call?appointmentId=${appointment.id}`)}
-                            className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-xl font-medium hover:bg-brand-hover transition-all"
+                          <button
+                            onClick={() => {
+                              console.log("Appointment object:", appointment);
+                              console.log("Appointment ID:", appointment.id);
+                              if (!appointment.id) {
+                                console.error("Appointment ID is missing!");
+                                return;
+                              }
+                              navigate(`/doctor/video-call?appointmentId=${appointment.id}`);
+                            }}
+                            className="flex items-center gap-2 px-4 py-2.5 h-10 min-w-[100px] justify-center bg-brand-primary text-white rounded-xl font-medium hover:bg-brand-hover transition-all text-sm border-2 border-brand-primary"
                           >
                             <Video size={16} />
                             Join Call
                           </button>
                         ) : (
-                          <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-500 rounded-xl font-medium">
+                          <div className="flex items-center gap-2 px-4 py-2.5 h-10 min-w-[100px] justify-center bg-gray-100 text-gray-500 rounded-xl font-medium text-sm border-2 border-gray-200">
                             <Clock size={16} />
                             <span className="text-sm">
                               {(() => {

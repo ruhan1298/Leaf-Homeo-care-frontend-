@@ -4,7 +4,7 @@ import PatientLayout from "../../components/PatientLayout";
 import { Video, Star, Calendar, Package, MessageSquare, ArrowRight, ArrowLeft, Clock, ShieldAlert, User, Mail, Phone, MapPin, Edit, Trash2, X, Save } from "lucide-react";
 import { getUpcomingAppointments } from "../../api/appointmentApi";
 import { getExpertDoctors } from "../../api/doctorApi";
-import { getUser, updateProfile } from "../../api/authApi";
+import { getUser, updateProfile, getNotifications, deleteNotification } from "../../api/authApi";
 import Swal from "sweetalert2";
 
 export default function PatientDashboard() {
@@ -14,10 +14,43 @@ export default function PatientDashboard() {
   const [loading, setLoading] = useState(false);
   const [upcomingAppointment, setUpcomingAppointment] = useState(null);
   const [expertDoctors, setExpertDoctors] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+
+  const fetchNotifications = async () => {
+    try {
+      const response = await getNotifications();
+      if (response.status === 1) {
+        setNotifications(response.data || []);
+      }
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+    }
+  };
+
+  const handleDeleteNotification = async (notificationId) => {
+    try {
+      // Check if notification still exists before deleting
+      const exists = notifications.find(n => n.id === notificationId);
+      if (!exists) return;
+
+      await deleteNotification(notificationId);
+      setNotifications(prev => prev.filter(n => n.id !== notificationId));
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+    }
+  };
 
   useEffect(() => {
     fetchUpcomingAppointment();
     fetchExpertDoctors();
+    fetchNotifications();
+
+    // Poll notifications every 10 seconds
+    const interval = setInterval(() => {
+      fetchNotifications();
+    }, 10000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const fetchExpertDoctors = async () => {
@@ -158,6 +191,37 @@ export default function PatientDashboard() {
 
   return (
     <PatientLayout>
+      <>
+      {/* Notification Cards */}
+      <div className="space-y-2 mb-6">
+        {notifications.slice(0, 3).map((notification) => (
+          <div
+            key={notification.id}
+            className={`p-4 rounded-xl border transition-all ${
+              !notification.isRead
+                ? 'bg-brand-light/30 border-brand-primary/20'
+                : 'bg-gray-50/50 border-gray-100'
+            }`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1">
+                <p className="text-sm font-bold text-gray-900">{notification.title}</p>
+                <p className="text-xs text-gray-600 mt-1">{notification.message}</p>
+                <p className="text-[10px] text-gray-400 mt-2">
+                  {new Date(notification.createdAt).toLocaleString()}
+                </p>
+              </div>
+              <button
+                onClick={() => handleDeleteNotification(notification.id)}
+                className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600 transition-colors cursor-pointer"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
       {/* Hero Section Card */}
       <div className="relative overflow-hidden bg-brand-dark rounded-2xl p-8 text-white shadow-lg mb-6 border border-white/5 animate-scaleUp">
         {/* Soft Background Radial Light */}
@@ -253,9 +317,44 @@ export default function PatientDashboard() {
                 {upcomingAppointment.reason || "Please have your symptom tracker ready for today's review."}
               </p>
 
-              <button className="mt-5 w-full bg-brand-primary hover:bg-brand-hover text-white py-3 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-xs cursor-pointer">
-                <Video className="h-4 w-4" /> Start Video Call
-              </button>
+              {(() => {
+                const appointmentTime = new Date(upcomingAppointment.appointmentDateTime);
+                const now = new Date();
+                const timeDiff = appointmentTime - now;
+                const minutesBefore = 10;
+                const showCallButton = timeDiff <= minutesBefore * 60 * 1000 && timeDiff > -30 * 60 * 1000;
+                
+                return (
+                  <div className="mt-5 flex gap-3">
+                    {showCallButton || upcomingAppointment.status === 'paid' || upcomingAppointment.status === 'accepted' ? (
+                      <button 
+                        onClick={() => {
+                          console.log("Upcoming appointment object:", upcomingAppointment);
+                          console.log("Appointment ID:", upcomingAppointment.appointmentId);
+                          if (!upcomingAppointment.appointmentId) {
+                            console.error("Appointment ID is missing!");
+                            return;
+                          }
+                          navigate(`/patient/video-call?appointmentId=${upcomingAppointment.appointmentId}`);
+                        }}
+                        className="flex-1 bg-brand-primary hover:bg-brand-hover text-white py-3 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-xs cursor-pointer"
+                      >
+                        <Video className="h-4 w-4" /> Start Video Call
+                      </button>
+                    ) : (
+                      <div className="flex-1 bg-gray-100 text-gray-400 py-3 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 cursor-not-allowed">
+                        <Video className="h-4 w-4" /> Call available {timeDiff > 0 ? `${Math.ceil(timeDiff / (60 * 1000))} min before` : 'ended'}
+                      </div>
+                    )}
+                    <button 
+                      onClick={() => navigate(`/patient/chat?doctor=${upcomingAppointment.doctorId}`)}
+                      className="flex-1 bg-blue-50 hover:bg-blue-100 text-blue-600 py-3 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all border border-blue-200 cursor-pointer"
+                    >
+                      <MessageSquare className="h-4 w-4" /> Chat with Doctor
+                    </button>
+                  </div>
+                );
+              })()}
             </>
           ) : (
             <div className="flex flex-col items-center justify-center py-12 gap-4">
@@ -303,53 +402,79 @@ export default function PatientDashboard() {
         </div>
       </div>
 
-      {/* Doctor Slider */}
+      {/* Expert Doctors Section */}
       <div className="space-y-5 pt-2">
         <div className="flex items-center justify-between">
           <div>
-            <h4 className="text-lg font-bold text-gray-900 tracking-tight">Highly Rated Homeopathy Doctors</h4>
-            <p className="text-xs text-gray-400">Book consultations with our expert panel</p>
+            <h4 className="text-xl font-extrabold text-gray-900 tracking-tight">Expert Homeopathy Doctors</h4>
+            <p className="text-sm text-gray-500 mt-1">Top-rated specialists ready to help you</p>
           </div>
-          <div className="flex gap-2">
-            <button className="p-2 rounded-xl border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 cursor-pointer"><ArrowLeft className="h-4 w-4" /></button>
-            <button className="p-2 rounded-xl border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 cursor-pointer"><ArrowRight className="h-4 w-4" /></button>
-          </div>
+          <button
+            onClick={() => navigate("/patient/doctors")}
+            className="text-sm font-bold text-brand-primary hover:underline cursor-pointer"
+          >
+            View All
+          </button>
         </div>
-        
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {expertDoctors.length > 0 ? (
-            expertDoctors.map((doc) => (
-              <div key={doc.id} className="bg-white border border-gray-100 rounded-2xl p-4 flex flex-col justify-between shadow-xs hover:shadow-md transition-all">
-                <div className="space-y-3.5 flex flex-col items-center">
-                  <div className="w-full aspect-square max-h-40 rounded-xl bg-gray-50 overflow-hidden border border-gray-100">
-                    <img src={doc.image || "https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=250&q=80"} alt={doc.name} className="w-full h-full object-cover" />
+            expertDoctors.slice(0, 3).map((doc) => {
+              const slug = doc.name || doc.id;
+              return (
+                <div
+                  key={doc.id}
+                  onClick={() => navigate(`/patient/doctors/${slug}`)}
+                  className="group bg-white border-2 border-gray-100 rounded-3xl p-5 hover:border-brand-primary hover:shadow-xl hover:shadow-brand-primary/10 transition-all duration-300 cursor-pointer"
+                >
+                  <div className="flex items-start gap-4 mb-4">
+                    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-brand-light to-brand-primary/20 overflow-hidden border-2 border-white shadow-md shrink-0">
+                      <img
+                        src={doc.image ? (doc.image.startsWith("http") ? doc.image : `http://localhost:5000/${doc.image}`) : "https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=200&q=80"}
+                        alt={doc.name}
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h5 className="font-bold text-gray-900 text-base group-hover:text-brand-primary transition-colors truncate">{doc.name}</h5>
+                      <p className="text-xs font-bold text-brand-primary uppercase tracking-wide truncate mt-1">
+                        {doc.specialization}
+                      </p>
+                      <div className="flex items-center gap-2 mt-2">
+                        <Star size={14} className="text-amber-400 fill-amber-400" />
+                        <span className="text-xs font-bold text-gray-900">{doc.averageRating || "0.0"}</span>
+                        <span className="text-xs text-gray-400">({doc.totalReviews || 0})</span>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="text-center space-y-1">
-                    <h5 className="font-bold text-gray-900 text-sm">{doc.name}</h5>
-                    <p className="text-[10px] font-bold text-brand-primary uppercase tracking-wide bg-brand-light px-2.5 py-0.5 rounded-md inline-block border border-brand-primary/10">
-                      {doc.specialization}
-                    </p>
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <div className="bg-gradient-to-br from-gray-50 to-brand-light/30 rounded-xl p-3 text-center border border-gray-100">
+                      <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Experience</p>
+                      <p className="text-sm font-bold text-gray-900">{doc.experience || "0"} yrs</p>
+                    </div>
+                    <div className="bg-gradient-to-br from-brand-light to-brand-primary/30 rounded-xl p-3 text-center border border-brand-primary/20">
+                      <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Fee</p>
+                      <p className="text-sm font-bold text-brand-primary">₹{doc.consultationFee || 0}</p>
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-1 text-xs font-semibold text-gray-600">
-                    <span className="text-brand-primary font-bold">Expert</span>
-                  </div>
-                </div>
-
-                <div className="mt-5">
                   <button
-                    onClick={() => navigate(`/patient/book-appointment/${doc.id}`)}
-                    className="w-full py-2.5 bg-white border border-brand-primary text-brand-primary hover:bg-brand-primary hover:text-white text-xs font-bold rounded-xl transition-all cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/patient/doctors/${slug}`);
+                    }}
+                    className="w-full py-3 bg-gradient-to-r from-brand-primary to-brand-hover text-white text-sm font-bold rounded-xl hover:shadow-lg hover:shadow-brand-primary/30 transition-all flex items-center justify-center gap-2"
                   >
-                    Book Appointment
+                    <Calendar size={16} />
+                    View Profile
                   </button>
                 </div>
-              </div>
-            ))
+              );
+            })
           ) : (
-            <div className="col-span-full text-center py-8 text-gray-500 text-sm">
-              No expert doctors available
+            <div className="col-span-full text-center py-12 text-gray-500">
+              <p className="text-sm">No expert doctors available</p>
             </div>
           )}
         </div>
@@ -565,6 +690,7 @@ export default function PatientDashboard() {
           </div>
         </div>
       )}
+      </>
     </PatientLayout>
   );
 }

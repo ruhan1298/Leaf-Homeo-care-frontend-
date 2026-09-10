@@ -27,6 +27,11 @@ export const getChatHistory = async (otherUserId, page = 1) => {
   return response.data;
 };
 
+export const getChatHistoryByAppointments = async (otherUserId) => {
+  const response = await API.get(`/api/v1/chat/history-by-appointments/${otherUserId}`);
+  return response.data;
+};
+
 export const getContactById = async (userId) => {
   const response = await API.get(`/api/v1/chat/contact/${userId}`);
   return response.data;
@@ -42,37 +47,34 @@ export const deleteMessage = async (messageId) => {
   return response.data;
 };
 
-// Temporarily disabled - frontend developer overwhelmed
-// export const uploadAttachment = async (file) => {
-//   const formData = new FormData();
-//   formData.append('file', file);
-//   
-//   const response = await API.post('/api/v1/chat/upload', formData, {
-//     headers: {
-//       'Content-Type': 'multipart/form-data'
-//     }
-//   });
-//   return response.data;
-// };
+export const uploadAttachment = async (file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  const response = await API.post('/api/v1/chat/upload', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  });
+  return response.data;
+};
 
-// Temporarily disabled - frontend developer overwhelmed
-// export const sendMedicalMessage = async (receiverId, messageType, medicalData, message) => {
-//   const response = await API.post('/api/v1/chat/medical', {
-//     receiverId,
-//     messageType,
-//     medicalData,
-//     message
-//   });
-//   return response.data;
-// };
+export const sendMedicalMessage = async (receiverId, messageType, medicalData, message) => {
+  const response = await API.post('/api/v1/chat/medical', {
+    receiverId,
+    messageType,
+    medicalData,
+    message
+  });
+  return response.data;
+};
 
 export const getAppointmentContext = async (otherUserId) => {
   const response = await API.get(`/api/v1/chat/appointment/${otherUserId}`);
   return response.data;
 };
 
-// Temporarily disabled - frontend developer overwhelmed
-// export const getPrescriptionTemplates = async () => {
-//   const response = await API.get('/api/v1/chat/prescription-templates');
-//   return response.data;
-// };
+export const getPrescriptionTemplates = async () => {
+  const response = await API.get('/api/v1/chat/prescription-templates');
+  return response.data;
+};

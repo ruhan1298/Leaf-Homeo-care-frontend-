@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Video as VideoIcon, VideoOff, Mic, MicOff, PhoneOff, Monitor, MonitorOff, Signal, Clock, X, User, AlertCircle, RefreshCw } from "lucide-react";
+import { Video as VideoIcon, VideoOff, Mic, MicOff, PhoneOff, Monitor, MonitorOff, Signal, Clock, X, User, AlertCircle, RefreshCw, FileText, Download } from "lucide-react";
 import { getVideoToken, endVideoCall } from "../api/videoApi";
 import * as TwilioVideo from 'twilio-video';
+import axios from 'axios';
 
 const VideoCall = ({ appointmentId, onEndCall, userType = 'patient' }) => {
   const [room, setRoom] = useState(null);
@@ -22,6 +23,11 @@ const VideoCall = ({ appointmentId, onEndCall, userType = 'patient' }) => {
   const [networkStatus, setNetworkStatus] = useState('connected'); // 'connected', 'reconnecting', 'disconnected'
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Consultation form states (doctor only)
+  const [showConsultationForm, setShowConsultationForm] = useState(true); // Show by default for doctors
+  const [consultationNotes, setConsultationNotes] = useState('');
+  const [submittingForm, setSubmittingForm] = useState(false);
 
   const localVideoRef = useRef(null);
   const localAudioRef = useRef(null);
@@ -32,12 +38,16 @@ const VideoCall = ({ appointmentId, onEndCall, userType = 'patient' }) => {
 
   useEffect(() => {
     console.log("VideoCall component mounted with appointmentId:", appointmentId);
-    if (appointmentId) {
-      initializePreCall();
-    } else {
-      setError("No appointment ID provided");
+    console.log("Type of appointmentId:", typeof appointmentId);
+    
+    if (!appointmentId || appointmentId === "undefined" || appointmentId === "null") {
+      console.error("Invalid appointmentId provided:", appointmentId);
+      setError("Invalid appointment ID provided. Please navigate from the appointments page.");
       setCallState('ended');
+      return;
     }
+    
+    initializePreCall();
 
     return () => {
       cleanupRoom();
@@ -534,6 +544,18 @@ const VideoCall = ({ appointmentId, onEndCall, userType = 'patient' }) => {
   const endCall = async () => {
     setShowEndCallConfirm(false);
     
+    // If doctor and form not submitted, show form
+    if (userType === 'doctor' && !consultationNotes.trim()) {
+      setShowConsultationForm(true);
+      return;
+    }
+    
+    // If doctor and form has notes, submit it first
+    if (userType === 'doctor' && consultationNotes.trim()) {
+      await submitConsultationForm();
+      return;
+    }
+    
     try {
       // First notify the backend that the call is ending
       await endVideoCall(appointmentId);
@@ -548,6 +570,114 @@ const VideoCall = ({ appointmentId, onEndCall, userType = 'patient' }) => {
     if (onEndCall) {
       onEndCall();
     }
+  };
+
+  const submitConsultationForm = async () => {
+    if (!consultationNotes.trim()) {
+      alert('Please fill in the consultation notes before ending the call.');
+      return;
+    }
+
+    try {
+      setSubmittingForm(true);
+      console.log('Submitting consultation form for appointment:', appointmentId);
+      const token = sessionStorage.getItem("token");
+      const API = axios.create({
+        baseURL: import.meta.env.VITE_API_URL,
+      });
+      API.interceptors.request.use((config) => {
+        if (token) {
+          config.headers.Authorization = token;
+        }
+        return config;
+      });
+
+      const response = await API.post("/api/v1/appointment/submit-consultation", {
+        appointmentId,
+        notes: consultationNotes,
+        callDuration: callDuration
+      });
+
+      console.log('Consultation submission response:', response.data);
+
+      if (response.data.status === 1) {
+        console.log('Consultation submitted successfully');
+        alert('Consultation submitted successfully!');
+        
+        // Generate and download PDF
+        await generateAndDownloadPDF(response.data.data);
+        
+        // End the call
+        await endVideoCall(appointmentId);
+        await cleanupRoom();
+        setCallState('ended');
+        if (onEndCall) {
+          onEndCall();
+        }
+      } else {
+        console.error('Consultation submission failed:', response.data.message);
+        alert('Failed to submit consultation: ' + response.data.message);
+      }
+    } catch (err) {
+      console.error('Error submitting consultation:', err);
+      alert('Failed to submit consultation. Please try again.');
+    } finally {
+      setSubmittingForm(false);
+    }
+  };
+
+  const generateAndDownloadPDF = async (consultationData) => {
+    // Create a simple PDF-like HTML content
+    const pdfContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Consultation Report</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 40px; line-height: 1.6; }
+          .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #10b981; padding-bottom: 20px; }
+          .header h1 { color: #10b981; margin: 0; }
+          .section { margin-bottom: 20px; }
+          .section h3 { color: #333; border-bottom: 1px solid #ddd; padding-bottom: 10px; }
+          .label { font-weight: bold; color: #555; }
+          .value { color: #333; margin-left: 10px; }
+          .notes { background: #f5f5f5; padding: 15px; border-radius: 5px; white-space: pre-wrap; }
+          .footer { margin-top: 40px; text-align: center; color: #888; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>Leaf Homeo Care</h1>
+          <p>Consultation Report</p>
+        </div>
+        <div class="section">
+          <h3>Appointment Details</h3>
+          <p><span class="label">Appointment ID:</span><span class="value">${appointmentId}</span></p>
+          <p><span class="label">Date:</span><span class="value">${new Date().toLocaleDateString()}</span></p>
+          <p><span class="label">Duration:</span><span class="value">${formatDuration(callDuration)}</span></p>
+        </div>
+        <div class="section">
+          <h3>Consultation Notes</h3>
+          <div class="notes">${consultationNotes}</div>
+        </div>
+        <div class="footer">
+          <p>Generated by Leaf Homeo Care</p>
+          <p>${new Date().toLocaleString()}</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    // Create a blob and download
+    const blob = new Blob([pdfContent], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `consultation_${appointmentId}_${Date.now()}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const handleEndCallClick = () => {
@@ -925,14 +1055,31 @@ const VideoCall = ({ appointmentId, onEndCall, userType = 'patient' }) => {
             <Signal size={16} className={`${connectionQuality === 'excellent' || connectionQuality === 'high' ? 'text-green-600' : connectionQuality === 'medium' ? 'text-yellow-500' : 'text-red-500'}`} />
             <span className="text-gray-600 text-xs font-medium capitalize">{connectionQuality}</span>
           </div>
+
+          {/* Toggle Form Button (Doctor Only) */}
+          {userType === 'doctor' && (
+            <button
+              onClick={() => setShowConsultationForm(!showConsultationForm)}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                showConsultationForm 
+                  ? 'bg-teal-600 text-white' 
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              <FileText size={16} />
+              {showConsultationForm ? 'Hide Form' : 'Show Form'}
+            </button>
+          )}
         </div>
       </div>
 
       {/* Main Video Area */}
-      <div className="flex-1 relative p-4">
+      <div className="flex-1 relative flex min-h-0">
+        {/* Video Section */}
+        <div className={`relative p-4 flex-1 min-h-0 ${showConsultationForm && userType === 'doctor' ? '' : 'w-full'}`}>
         {hasRemoteParticipants ? (
           // Remote participant big screen, local video picture-in-picture
-          <div className="h-full relative bg-slate-900 rounded-2xl overflow-hidden shadow-xl">
+          <div className="h-full w-full relative bg-slate-900 rounded-2xl overflow-hidden shadow-xl">
             {/* Remote Participant - Big Screen */}
             {remoteParticipants.map((participant) => (
               <div key={participant.sid} className="absolute inset-0">
@@ -997,7 +1144,7 @@ const VideoCall = ({ appointmentId, onEndCall, userType = 'patient' }) => {
           </div>
         ) : (
           // Full screen local video when waiting (no one has joined yet)
-          <div className="h-full relative bg-slate-900 rounded-2xl overflow-hidden shadow-xl">
+          <div className="h-full w-full relative bg-slate-900 rounded-2xl overflow-hidden shadow-xl">
             {isVideoEnabled ? (
               <div ref={localVideoRef} className="w-full h-full"></div>
             ) : (
@@ -1045,6 +1192,54 @@ const VideoCall = ({ appointmentId, onEndCall, userType = 'patient' }) => {
                   <span className="text-white text-xs font-medium">Off</span>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+        </div>
+
+        {/* Consultation Form Sidebar (Doctor Only) */}
+        {showConsultationForm && userType === 'doctor' && (
+          <div className="w-96 bg-white border-l border-teal-100 p-4 overflow-y-auto">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="bg-teal-100 p-2 rounded-lg">
+                <FileText size={16} className="text-teal-600" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-gray-900">Consultation Notes</h3>
+                <p className="text-xs text-gray-400">Fill while talking to patient</p>
+              </div>
+            </div>
+
+            {/* Appointment Info */}
+            <div className="bg-teal-50 rounded-xl p-3 border border-teal-100 mb-4">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <p className="text-xs text-gray-500 font-semibold mb-1">Appointment ID</p>
+                  <p className="text-xs font-bold text-gray-900">#{appointmentId}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 font-semibold mb-1">Duration</p>
+                  <p className="text-xs font-bold text-gray-900">{formatDuration(callDuration)}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Consultation Notes */}
+            <div>
+              <label className="text-xs font-bold text-gray-700 mb-2 block flex items-center gap-2">
+                <FileText size={12} className="text-teal-600" />
+                Notes
+              </label>
+              <textarea
+                value={consultationNotes}
+                onChange={(e) => setConsultationNotes(e.target.value)}
+                rows={12}
+                placeholder="Enter consultation details, diagnosis, prescription..."
+                className="w-full p-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 text-gray-800 resize-none text-sm font-medium"
+              />
+              <p className="text-xs text-gray-400 mt-2">
+                This will be submitted when you end the call
+              </p>
             </div>
           </div>
         )}
@@ -1127,6 +1322,11 @@ const VideoCall = ({ appointmentId, onEndCall, userType = 'patient' }) => {
               <p className="text-gray-500">
                 Are you sure you want to end this video call? This action cannot be undone.
               </p>
+              {userType === 'doctor' && !consultationNotes.trim() && (
+                <p className="text-amber-600 text-sm mt-2 font-medium">
+                  Please fill in consultation notes before ending the call.
+                </p>
+              )}
             </div>
             <div className="flex gap-3">
               <button

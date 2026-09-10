@@ -123,6 +123,7 @@ const DoctorLogin = () => {
           <div className="text-right">
             <button
               type="button"
+              onClick={() => navigate("/doctor/forgot-password")}
               className="text-xs font-bold text-brand-primary hover:underline cursor-pointer"
             >
               Forgot Password?

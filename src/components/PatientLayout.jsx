@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { 
   LayoutDashboard, 
@@ -14,8 +14,11 @@ import {
   X,
   User,
   Users,
-  HeartPulse
+  HeartPulse,
+  BookOpen
 } from "lucide-react";
+import { getNotifications, deleteNotification } from "../api/authApi";
+import { useNotification } from "../context/NotificationContext";
 
 // Brand color - kept for compatibility
 export const BRAND = "#00B100";
@@ -25,8 +28,8 @@ const navItems = [
   { icon: Calendar, label: "Book Appointment", path: "/patient/book" },
   { icon: FileText, label: "My Appointments", path: "/patient/appointments" },
   { icon: Users, label: "Doctors", path: "/patient/doctors" },
+  { icon: BookOpen, label: "Blog", path: "/patient/blog" },
   { icon: MessageSquare, label: "Chat", path: "/patient/chat" },
-  { icon: Bell, label: "Notifications", path: "/patient/notifications" },
   { icon: User, label: "Profile", path: "/patient/profile" },
 ];
 
@@ -36,6 +39,10 @@ function Sidebar({ sidebarOpen, setSidebarOpen }) {
 
   const handleNavClick = (item) => {
     if (item.action === "book") {
+    navigate(item.path);
+    } else if (item.path === "/patient/doctors") {
+      navigate(item.path + "?showList=true");
+    } else {
       navigate(item.path);
     }
     setSidebarOpen(false);
@@ -52,7 +59,7 @@ function Sidebar({ sidebarOpen, setSidebarOpen }) {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-brand-dark text-white transition-all duration-300 ease-in-out lg:static lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-brand-dark text-white transition-all duration-300 ease-in-out lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 lg:self-start ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -80,11 +87,10 @@ function Sidebar({ sidebarOpen, setSidebarOpen }) {
             const isActive = location.pathname === item.path;
             const Icon = item.icon;
             return (
-              <Link
+              <button
                 key={item.label}
-                to={item.path}
                 onClick={() => handleNavClick(item)}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 decoration-transparent ${
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 w-full text-left ${
                   isActive 
                     ? "bg-brand-primary text-white shadow-md shadow-brand-primary/20 scale-[1.02]" 
                     : "text-white/85 hover:bg-white/10 hover:text-white"
@@ -92,7 +98,7 @@ function Sidebar({ sidebarOpen, setSidebarOpen }) {
               >
                 <Icon size={18} className={isActive ? "text-white" : "text-white/70"} />
                 <span>{item.label}</span>
-              </Link>
+              </button>
             );
           })}
         </nav>
@@ -103,7 +109,84 @@ function Sidebar({ sidebarOpen, setSidebarOpen }) {
 
 function TopHeader({ setSidebarOpen }) {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { showCustomToast, addToastWithNotification } = useNotification();
+  const seenNotificationIds = useRef(new Set());
+  const initialLoadDone = useRef(false);
+
+  const fetchNotifications = async (showToasts = false) => {
+    try {
+      if (!showToasts) setLoading(true);
+      const response = await getNotifications();
+      if (response.status === 1) {
+        const fetchedNotifications = response.data || [];
+        setNotifications(fetchedNotifications);
+
+        if (showToasts) {
+          let newToastCount = 0;
+          fetchedNotifications.forEach((notification) => {
+            if (!notification.isRead && !seenNotificationIds.current.has(notification.id)) {
+              seenNotificationIds.current.add(notification.id);
+              newToastCount++;
+              console.log(" New notification toast:", notification.id, notification.title);
+              addToastWithNotification(
+                {
+                  title: notification.title || "Notification",
+                  message: notification.message,
+                  type: notification.type || "info",
+                  position: 'top-end',
+                  duration: 0,
+                  showCloseButton: true
+                },
+                notification.id
+              );
+            }
+          });
+          console.log(" New toasts shown this cycle:", newToastCount);
+        } else if (!initialLoadDone.current) {
+          fetchedNotifications.forEach((notification) => {
+            seenNotificationIds.current.add(notification.id);
+          });
+          initialLoadDone.current = true;
+          console.log(" Initial load done - marked all as seen");
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+    } finally {
+      if (!showToasts) setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // Initial fetch - show toasts for existing unread notifications
+    fetchNotifications(true);
+
+    // Setup polling every 10 seconds
+    const interval = setInterval(() => {
+      fetchNotifications(true);
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleNotificationClick = async (notification) => {
+    // Delete notification from database
+    try {
+      await deleteNotification(notification.id);
+      // Remove from local state
+      setNotifications(prev => 
+        prev.filter(n => n.id !== notification.id)
+      );
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+    }
+    
+    setShowNotifications(false);
+  };
 
   const handleLogout = () => {
     sessionStorage.clear();
@@ -135,13 +218,67 @@ function TopHeader({ setSidebarOpen }) {
 
       {/* Right side: notifications + profile */}
       <div className="flex items-center gap-4">
-        <button
-          aria-label="Notifications"
-          className="relative rounded-xl p-2.5 text-gray-500 hover:bg-gray-50 transition-colors"
-        >
-          <Bell size={18} />
-          <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-red-500 ring-2 ring-white" />
-        </button>
+        <div className="relative">
+          <button
+            aria-label="Notifications"
+            onClick={() => {
+              setShowNotifications(!showNotifications);
+            }}
+            className="relative rounded-xl p-2.5 text-gray-500 hover:bg-gray-50 transition-colors"
+          >
+            <Bell size={18} />
+            {notifications.filter(n => !n.isRead).length > 0 && (
+              <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-red-500 ring-2 ring-white" />
+            )}
+          </button>
+
+          {showNotifications && (
+            <div className="absolute right-0 mt-2 w-80 rounded-xl border border-gray-100 bg-white p-2 shadow-xl ring-1 ring-black/5 animate-fadeIn">
+              <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100">
+                <h3 className="text-sm font-bold text-gray-900">Notifications</h3>
+                <span className="text-xs font-semibold text-brand-primary bg-brand-light px-2 py-0.5 rounded-full">
+                  {notifications.filter(n => !n.isRead).length} new
+                </span>
+              </div>
+              <div className="max-h-80 overflow-y-auto py-2">
+                {notifications.length > 0 ? (
+                  notifications.map((notification) => (
+                    <div
+                      key={notification.id}
+                      onClick={() => handleNotificationClick(notification)}
+                      className={`px-3 py-2.5 hover:bg-gray-50 cursor-pointer transition-colors ${
+                        !notification.isRead ? "bg-brand-light/30" : ""
+                      }`}
+                    >
+                      <div className="flex items-start gap-2">
+                        {!notification.isRead && (
+                          <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-brand-primary shrink-0" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-gray-900 truncate">Notification</p>
+                          <p className="text-[11px] text-gray-600 mt-0.5 line-clamp-2">{notification.message}</p>
+                          <p className="text-[10px] text-gray-400 mt-1">{new Date(notification.createdAt).toLocaleString()}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="px-3 py-8 text-center text-gray-500 text-sm">
+                    No notifications
+                  </div>
+                )}
+              </div>
+              <div className="border-t border-gray-100 px-3 py-2">
+                <button
+                  onClick={() => { navigate("/patient/notifications"); setShowNotifications(false); }}
+                  className="w-full text-center text-xs font-bold text-brand-primary hover:underline"
+                >
+                  View All Notifications
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Profile Dropdown */}
         <div className="relative">
@@ -199,8 +336,19 @@ function TopHeader({ setSidebarOpen }) {
 
 function Footer() {
   return (
-    <footer className="py-5 px-6 border-t border-gray-100 text-center text-xs text-gray-400">
-      © {new Date().getFullYear()} Leaf Homeo Care. All rights reserved.
+    <footer className="py-5 px-6 border-t border-gray-100 text-center">
+      <div className="flex flex-col sm:flex-row items-center justify-center gap-2 text-xs text-gray-400">
+        <span>© {new Date().getFullYear()} Leaf Homeo Care. All rights reserved.</span>
+        <span className="hidden sm:inline">|</span>
+        <div className="flex items-center gap-4">
+          <Link to="/patient/privacy-policy" className="hover:text-brand-primary transition-colors">
+            Privacy Policy
+          </Link>
+          <Link to="/patient/terms-conditions" className="hover:text-brand-primary transition-colors">
+            Terms & Conditions
+          </Link>
+        </div>
+      </div>
     </footer>
   );
 }
@@ -212,10 +360,10 @@ export default function PatientLayout({ children }) {
     <div className="flex min-h-screen bg-[#F8F9FA] text-gray-800 font-sans antialiased">
       <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex flex-1 flex-col min-h-screen">
         <TopHeader setSidebarOpen={setSidebarOpen} />
         
-        <main className="flex-1 overflow-y-auto px-6 py-8 md:px-8">
+        <main className="flex-1 px-6 py-8 md:px-8 relative">
           <div className="mx-auto max-w-7xl">
             {children}
           </div>

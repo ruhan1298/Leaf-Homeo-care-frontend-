@@ -15,6 +15,8 @@ import {
   ChevronDown,
   Edit,
   Trash2,
+  ShieldCheck,
+  ShieldAlert,
 } from "lucide-react";
 import AdminLayout from "../../components/AdminLayout";
 import { getDoctors, addDoctor, updateDoctor, deleteDoctor } from "../../api/doctorApi";
@@ -35,7 +37,7 @@ const emptyForm = {
   name: "",
   email: "",
   mobile: "",
-  specialization: "",
+  specialization: [],
   qualification: "",
   experience: "",
   consultationFee: "",
@@ -62,7 +64,7 @@ function AddDoctorModal({ open, onClose, onSave, doctorToEdit = null }) {
         name: doctorToEdit.user?.name || "",
         email: doctorToEdit.user?.email || "",
         mobile: doctorToEdit.user?.mobile || "",
-        specialization: doctorToEdit.specialization || "",
+        specialization: Array.isArray(doctorToEdit.specialization) ? doctorToEdit.specialization : [],
         qualification: doctorToEdit.qualification || "",
         experience: doctorToEdit.experience || "",
         consultationFee: doctorToEdit.consultationFee || "",
@@ -89,7 +91,7 @@ function AddDoctorModal({ open, onClose, onSave, doctorToEdit = null }) {
     else if (!/^\S+@\S+\.\S+$/.test(form.email)) e.email = "Enter a valid email";
     if (!form.mobile.trim()) e.mobile = "Mobile number is required";
     else if (!/^[+]?[\d\s-]{10,15}$/.test(form.mobile)) e.mobile = "Enter a valid mobile number";
-    if (!form.specialization.trim()) e.specialization = "Specialization is required";
+    if (!form.specialization || form.specialization.length === 0) e.specialization = "At least one specialization is required";
     if (!form.qualification.trim()) e.qualification = "Qualification is required";
     if (!form.experience || Number(form.experience) < 0) e.experience = "Enter valid years of experience";
     if (!form.consultationFee || Number(form.consultationFee) <= 0) e.consultationFee = "Enter a valid fee";
@@ -192,16 +194,62 @@ function AddDoctorModal({ open, onClose, onSave, doctorToEdit = null }) {
           </div>
 
           <div>
-            <FieldLabel required>Specialization</FieldLabel>
-            <div className="relative">
-              <Briefcase size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                value={form.specialization}
-                onChange={(e) => handleChange("specialization", e.target.value)}
-                placeholder="e.g. Pediatric Homeopathy"
-                className={`${inputBase} ${errors.specialization ? "border-rose-400 focus:ring-rose-400" : "border-gray-200"}`}
-              />
+            <FieldLabel required>Specializations</FieldLabel>
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Briefcase size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    value={form.tempSpecialization || ""}
+                    onChange={(e) => handleChange("tempSpecialization", e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        if (form.tempSpecialization && form.tempSpecialization.trim()) {
+                          handleChange("specialization", [...form.specialization, form.tempSpecialization.trim()]);
+                          handleChange("tempSpecialization", "");
+                        }
+                      }
+                    }}
+                    placeholder="e.g. Pediatric Homeopathy"
+                    className={`${inputBase} ${errors.specialization ? "border-rose-400 focus:ring-rose-400" : "border-gray-200"}`}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (form.tempSpecialization && form.tempSpecialization.trim()) {
+                      handleChange("specialization", [...form.specialization, form.tempSpecialization.trim()]);
+                      handleChange("tempSpecialization", "");
+                    }
+                  }}
+                  className="px-4 py-2.5 bg-brand-primary text-white rounded-xl text-sm font-semibold hover:bg-brand-hover transition-colors cursor-pointer"
+                >
+                  Add
+                </button>
+              </div>
+              {form.specialization.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {form.specialization.map((spec, index) => (
+                    <div
+                      key={index}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-light text-brand-dark rounded-full text-sm font-medium border border-brand-primary/20"
+                    >
+                      {spec}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleChange("specialization", form.specialization.filter((_, i) => i !== index));
+                        }}
+                        className="text-brand-primary hover:text-rose-500 transition-colors cursor-pointer"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             {errors.specialization && <p className="text-xs text-rose-500 mt-1">{errors.specialization}</p>}
           </div>
@@ -584,13 +632,26 @@ export default function DoctorManagement() {
                             <Star size={13} className="text-amber-400 fill-amber-400" />
                           )}
                         </span>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          {doc.user?.isPasswordSet ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-green-50 text-green-700 border border-green-200">
+                              <ShieldCheck size={10} />
+                              Verified
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                              <ShieldAlert size={10} />
+                              Not Verified
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4.5 text-gray-600 whitespace-nowrap font-medium">{doc.user?.email}</td>
                   <td className="px-6 py-4.5 text-gray-600 whitespace-nowrap font-medium">{doc.user?.mobile}</td>
                   <td className="px-6 py-4.5 text-gray-800 font-semibold whitespace-nowrap">
-                    {doc.specialization}
+                    {Array.isArray(doc.specialization) ? doc.specialization.join(", ") : doc.specialization}
                   </td>
                   <td className="px-6 py-4.5 text-gray-600 whitespace-nowrap font-medium">{doc.qualification}</td>
                   <td className="px-6 py-4.5 text-gray-600 whitespace-nowrap font-medium">{doc.experience} Years</td>
@@ -666,7 +727,22 @@ export default function DoctorManagement() {
                         <Star size={12} className="text-amber-400 fill-amber-400 flex-shrink-0" />
                       )}
                     </p>
-                    <p className="text-xs font-semibold text-brand-primary truncate">{doc.specialization}</p>
+                    <p className="text-xs font-semibold text-brand-primary truncate">
+                      {Array.isArray(doc.specialization) ? doc.specialization.join(", ") : doc.specialization}
+                    </p>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      {doc.user?.isPasswordSet ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-green-50 text-green-700 border border-green-200">
+                          <ShieldCheck size={10} />
+                          Verified
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                          <ShieldAlert size={10} />
+                          Not Verified
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-1">

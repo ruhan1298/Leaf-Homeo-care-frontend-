@@ -1,28 +1,33 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import DoctorLayout from "../../components/DoctorLayout";
-import { 
-  User, 
-  Mail, 
-  Phone, 
-  MapPin, 
-  Calendar, 
-  Edit,
+import {
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  Calendar,
   Loader2,
   AlertCircle,
   Stethoscope,
   GraduationCap,
   Award,
   Lock,
-  LogOut
+  LogOut,
+  Star,
+  MessageSquare,
+  Edit
 } from "lucide-react";
 import { getUser } from "../../api/authApi";
+import axios from "axios";
 
 export default function DoctorProfile() {
   const navigate = useNavigate();
   const [profileData, setProfileData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [reviews, setReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -59,6 +64,37 @@ export default function DoctorProfile() {
     };
     fetchProfile();
   }, []);
+
+  useEffect(() => {
+    const fetchReviews = async () => {
+      try {
+        setReviewsLoading(true);
+        const token = sessionStorage.getItem("token");
+        const API = axios.create({
+          baseURL: import.meta.env.VITE_API_URL,
+        });
+        API.interceptors.request.use((config) => {
+          if (token) {
+            config.headers.Authorization = token;
+          }
+          return config;
+        });
+        const response = await API.get("/api/v1/patient/get-doctor-details", {
+          params: { doctorId: profileData?.id }
+        });
+        if (response.data.status === 1) {
+          setReviews(response.data.data.reviews || []);
+        }
+      } catch (err) {
+        console.error("Reviews fetch error:", err);
+      } finally {
+        setReviewsLoading(false);
+      }
+    };
+    if (profileData?.id) {
+      fetchReviews();
+    }
+  }, [profileData?.id]);
 
   if (loading) {
     return (
@@ -111,13 +147,6 @@ export default function DoctorProfile() {
             <h1 className="text-3xl font-extrabold text-gray-900 mb-2">My Profile</h1>
             <p className="text-gray-500">View your professional information</p>
           </div>
-          <button
-            onClick={() => navigate("/doctor/profile/edit")}
-            className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-xl font-medium hover:bg-brand-hover transition-all"
-          >
-            <Edit size={18} />
-            Edit Profile
-          </button>
         </div>
 
         {/* Profile Card */}
@@ -256,18 +285,51 @@ export default function DoctorProfile() {
           </div>
         </div>
 
+        {/* Reviews Section */}
+        <div className="mt-6 bg-white border-2 border-gray-100 rounded-2xl p-6">
+          <h3 className="text-lg font-extrabold text-gray-900 mb-5 flex items-center gap-2">
+            <Star className="h-5 w-5 text-brand-primary" />
+            Patient Reviews
+          </h3>
+          {reviewsLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-brand-primary" />
+            </div>
+          ) : reviews.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <MessageSquare className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+              <p>No reviews yet</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {reviews.map((review) => (
+                <div key={review.id} className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
+                        {[...Array(5)].map((_, i) => (
+                          <Star
+                            key={i}
+                            size={14}
+                            className={i < review.rating ? "text-amber-400 fill-amber-400" : "text-gray-300"}
+                          />
+                        ))}
+                      </div>
+                      <span className="text-xs text-gray-400">
+                        {new Date(review.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-2">{review.review}</p>
+                  <p className="text-xs font-semibold text-gray-900">- {review.patientName}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Quick Actions */}
         <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <button
-            onClick={() => navigate("/doctor/profile/edit")}
-            className="p-4 bg-white border-2 border-gray-100 rounded-xl hover:border-brand-primary transition-all flex items-center gap-3"
-          >
-            <Edit className="h-5 w-5 text-brand-primary" />
-            <div className="text-left">
-              <p className="font-bold text-gray-900">Edit Profile</p>
-              <p className="text-xs text-gray-500">Update your professional information</p>
-            </div>
-          </button>
           <button
             onClick={() => navigate("/doctor/profile/change-password")}
             className="p-4 bg-white border-2 border-gray-100 rounded-xl hover:border-brand-primary transition-all flex items-center gap-3"

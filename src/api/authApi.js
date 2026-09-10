@@ -73,3 +73,33 @@ export const getNotifications = async () => {
   const response = await API.get("/api/v1/auth/get-notifications");
   return response.data;
 };
+
+export const deleteNotification = async (notificationId) => {
+  const response = await API.delete(`/api/v1/auth/notification/${notificationId}`);
+  return response.data;
+};
+
+export const truncateNotifications = async () => {
+  const response = await API.delete("/api/v1/auth/truncate-notifications");
+  return response.data;
+};
+
+export const setupPassword = async (data) => {
+  const response = await API.post("/api/v1/auth/setup-password", data);
+  return response.data;
+};
+
+export const sendPhoneOTP = async (data) => {
+  const response = await API.post("/api/v1/auth/send-phone-otp", data);
+  return response.data;
+};
+
+export const verifyPhoneOTP = async (data) => {
+  const response = await API.post("/api/v1/auth/verify-phone-otp", data);
+  return response.data;
+};
+
+export const getTermsConditions = async () => {
+  const response = await API.get("/api/v1/auth/terms-conditions");
+  return response.data;
+};

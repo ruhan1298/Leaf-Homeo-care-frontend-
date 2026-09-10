@@ -59,12 +59,12 @@ export const getPatients = async (page, limit, search) => {
   return response.data;
 };
 
-export const updatePatient = async (patientData) => {
-  const response = await API.post("/api/v1/admin/updatepatient", patientData);
+export const deletePatient = async (patientId) => {
+  const response = await API.post("/api/v1/admin/deletepatient", { patientId });
   return response.data;
 };
 
-export const deletePatient = async (patientId) => {
-  const response = await API.post("/api/v1/admin/deletepatient", { patientId });
+export const getPatientDetails = async (patientId) => {
+  const response = await API.post("/api/v1/admin/patient-details", { patientId });
   return response.data;
 };

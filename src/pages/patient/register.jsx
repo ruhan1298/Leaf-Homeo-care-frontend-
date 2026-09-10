@@ -1,8 +1,9 @@
 import { Link, useNavigate } from "react-router-dom";
-import { useState } from "react";
-import { Leaf, Lock, Mail, User, Phone, Eye, EyeOff, Loader2, AlertCircle, CheckCircle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Leaf, Lock, Mail, User, Phone, Eye, EyeOff, Loader2, AlertCircle, CheckCircle, Shield, Send } from "lucide-react";
 import axios from "axios";
 import Swal from "sweetalert2";
+import { sendPhoneOTP, verifyPhoneOTP, getTermsConditions } from "../../api/authApi";
 const Register = () => {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
@@ -12,18 +13,119 @@ const Register = () => {
     email: "",
     mobile: "",
     password: "",
-    confirmPassword: ""
+    confirmPassword: "",
+    otp: "",
+    termsAccepted: false
   });
   const [loading, setLoading] = useState(false);
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [termsAndConditions, setTermsAndConditions] = useState("");
 
   const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [name]: type === 'checkbox' ? checked : value
     });
   };
+
+  const handleSendOTP = async () => {
+    if (!formData.mobile) {
+      setError("Please enter mobile number first");
+      return;
+    }
+
+    // Clean and validate mobile number
+    const cleanMobile = formData.mobile.replace(/\D/g, '');
+    if (cleanMobile.length < 10) {
+      setError("Please enter a valid mobile number (at least 10 digits)");
+      return;
+    }
+
+    try {
+      setOtpLoading(true);
+      setError(null);
+      
+      const response = await sendPhoneOTP({ mobile: formData.mobile });
+      
+      if (response.status === 1) {
+        setOtpSent(true);
+        setSuccess("OTP sent successfully!");
+        
+        // Update form data with formatted mobile number if provided
+        if (response.data?.formattedMobile) {
+          setFormData(prev => ({
+            ...prev,
+            mobile: response.data.formattedMobile
+          }));
+        }
+        
+        // In development, show the OTP for testing
+        if (response.data?.otp) {
+          Swal.fire({
+            icon: "info",
+            title: "OTP Sent (Development Mode)",
+            text: `Your OTP is: ${response.data.otp}`,
+            confirmButtonColor: "#10b981"
+          });
+        }
+      } else {
+        setError(response.message || "Failed to send OTP");
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to send OTP. Please try again.");
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleVerifyOTP = async () => {
+    if (!formData.otp) {
+      setError("Please enter the OTP");
+      return;
+    }
+
+    try {
+      setOtpLoading(true);
+      setError(null);
+      
+      const response = await verifyPhoneOTP({ 
+        mobile: formData.mobile, 
+        otp: formData.otp 
+      });
+      
+      if (response.status === 1) {
+        setPhoneVerified(true);
+        setSuccess("Phone number verified successfully!");
+      } else {
+        setError(response.message || "Invalid OTP");
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || "OTP verification failed. Please try again.");
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const fetchTermsAndConditions = async () => {
+    try {
+      const response = await getTermsConditions();
+      if (response.status === 1) {
+        setTermsAndConditions(response.data.text);
+      }
+    } catch (err) {
+      console.error("Failed to fetch terms and conditions:", err);
+    }
+  };
+
+  // Fetch terms and conditions on component mount
+  useEffect(() => {
+    fetchTermsAndConditions();
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -41,6 +143,16 @@ const Register = () => {
       return;
     }
 
+    if (!phoneVerified) {
+      setError("Please verify your phone number first");
+      return;
+    }
+
+    if (!formData.termsAccepted) {
+      setError("Please accept the terms and conditions");
+      return;
+    }
+
     try {
       setLoading(true);
 
@@ -50,7 +162,10 @@ const Register = () => {
           name: formData.name,
           email: formData.email,
           mobile: formData.mobile,
-          password: formData.password
+          password: formData.password,
+          otp: formData.otp,
+          termsAccepted: formData.termsAccepted,
+          phoneVerified: phoneVerified
         }
       );
 
@@ -172,12 +287,80 @@ const Register = () => {
                 name="mobile"
                 value={formData.mobile}
                 onChange={handleChange}
-                placeholder="+91 98765 43210"
-                className="w-full h-11 pl-10 pr-4 rounded-xl border border-gray-200 text-sm outline-hidden transition-all bg-gray-50/50 focus:bg-white focus:ring-1 focus:ring-brand-primary focus:border-brand-primary font-medium"
+                placeholder="9876543210"
+                className="w-full h-11 pl-10 pr-24 rounded-xl border border-gray-200 text-sm outline-hidden transition-all bg-gray-50/50 focus:bg-white focus:ring-1 focus:ring-brand-primary focus:border-brand-primary font-medium"
                 required
+                disabled={phoneVerified}
               />
+              <p className="text-xs text-gray-500 mt-1">
+                Enter 10-digit number. Country code (+91) will be added automatically.
+              </p>
+              <button
+                type="button"
+                onClick={handleSendOTP}
+                disabled={otpLoading || phoneVerified}
+                className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-brand-primary text-white text-xs font-bold rounded-lg hover:bg-brand-hover transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+              >
+                {otpLoading ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : phoneVerified ? (
+                  <CheckCircle className="h-3 w-3" />
+                ) : (
+                  <Send className="h-3 w-3" />
+                )}
+                {phoneVerified ? "Verified" : "Send OTP"}
+              </button>
             </div>
           </div>
+
+          {/* OTP Verification */}
+          {otpSent && !phoneVerified && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block">
+                OTP Verification
+              </label>
+              <div className="relative">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
+                  <Shield size={16} />
+                </span>
+                <input
+                  type="text"
+                  name="otp"
+                  value={formData.otp}
+                  onChange={handleChange}
+                  placeholder="Enter 6-digit OTP"
+                  className="w-full h-11 pl-10 pr-24 rounded-xl border border-gray-200 text-sm outline-hidden transition-all bg-gray-50/50 focus:bg-white focus:ring-1 focus:ring-brand-primary focus:border-brand-primary font-medium"
+                  maxLength={6}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={handleVerifyOTP}
+                  disabled={otpLoading}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-green-600 text-white text-xs font-bold rounded-lg hover:bg-green-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                >
+                  {otpLoading ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    "Verify"
+                  )}
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                OTP sent to your mobile. Valid for 10 minutes.
+              </p>
+            </div>
+          )}
+
+          {/* Phone Verified Badge */}
+          {phoneVerified && (
+            <div className="flex items-center gap-2 p-3 bg-green-50 rounded-xl border border-green-200">
+              <CheckCircle className="h-5 w-5 text-green-600" />
+              <p className="text-sm font-medium text-green-600">
+                Phone number verified successfully
+              </p>
+            </div>
+          )}
 
           {/* Password */}
           <div className="space-y-1.5">
@@ -237,10 +420,47 @@ const Register = () => {
             </div>
           </div>
 
+          {/* Terms and Conditions */}
+          <div className="space-y-1.5">
+            <div className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                name="termsAccepted"
+                checked={formData.termsAccepted}
+                onChange={handleChange}
+                className="mt-1 h-4 w-4 rounded border-gray-300 text-brand-primary focus:ring-brand-primary"
+                required
+              />
+              <div className="flex-1">
+                <label className="text-sm text-gray-600 font-medium cursor-pointer">
+                  I accept the{" "}
+                  <Link
+                    to="/terms-and-conditions"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-brand-primary font-bold hover:underline"
+                  >
+                    Terms and Conditions
+                  </Link>
+                </label>
+                {termsAndConditions && (
+                  <details className="mt-2 text-xs text-gray-500">
+                    <summary className="cursor-pointer hover:text-gray-700 font-medium">
+                      Preview Terms
+                    </summary>
+                    <div className="mt-2 p-3 bg-gray-50 rounded-lg max-h-32 overflow-y-auto">
+                      {termsAndConditions.substring(0, 300)}...
+                    </div>
+                  </details>
+                )}
+              </div>
+            </div>
+          </div>
+
           {/* Button */}
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !phoneVerified || !formData.termsAccepted}
             className="w-full h-11 bg-brand-primary hover:bg-brand-hover text-white font-bold rounded-xl shadow-md shadow-brand-primary/20 transition-all cursor-pointer flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? (

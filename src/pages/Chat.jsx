@@ -9,8 +9,7 @@ import {
   CheckCheck, 
   MessageCircle,
   ShieldAlert,
-  // Temporarily disabled - frontend developer overwhelmed
-  // Paperclip,
+  Paperclip,
   Smile,
   Video,
   ChevronLeft,
@@ -24,7 +23,7 @@ import {
 
 import PatientLayout from "../components/PatientLayout";
 import DoctorLayout from "../components/DoctorLayout";
-import { getContacts, getChatHistory, getContactById, editMessage, deleteMessage } from "../api/chatApi";
+import { getContacts, getChatHistory, getContactById, editMessage, deleteMessage, getChatHistoryByAppointments, uploadAttachment } from "../api/chatApi";
 
 export default function Chat() {
   const location = useLocation();
@@ -38,6 +37,7 @@ export default function Chat() {
   const [contacts, setContacts] = useState([]);
   const [selectedContact, setSelectedContact] = useState(null);
   const [messages, setMessages] = useState([]);
+  const [appointmentConversations, setAppointmentConversations] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [loadingContacts, setLoadingContacts] = useState(true);
@@ -48,9 +48,9 @@ export default function Chat() {
   const [remoteTyping, setRemoteTyping] = useState(false);
   const [editingMessage, setEditingMessage] = useState(null);
   const [editText, setEditText] = useState("");
-  // Temporarily disabled - frontend developer overwhelmed
-  // const [uploadingFile, setUploadingFile] = useState(false);
-  // const fileInputRef = useRef(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const fileInputRef = useRef(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const emojiPickerRef = useRef(null);
   const [searchMessages, setSearchMessages] = useState("");
@@ -59,6 +59,7 @@ export default function Chat() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [queuedMessages, setQueuedMessages] = useState([]);
+  const [currentAppointmentId, setCurrentAppointmentId] = useState(null);
 
   const socketRef = useRef(null);
   const messagesEndRef = useRef(null);
@@ -222,6 +223,20 @@ export default function Chat() {
         (messageData.senderId === currentSelected.id || messageData.receiverId === currentSelected.id)
       ) {
         setMessages((prev) => [...prev, messageData]);
+        
+        // Update appointmentConversations state to add message to the correct appointment
+        setAppointmentConversations((prev) => {
+          return prev.map((conv) => {
+            if (conv.appointment.id === messageData.appointmentId) {
+              return {
+                ...conv,
+                messages: [...conv.messages, messageData]
+              };
+            }
+            return conv;
+          });
+        });
+        
         scrollToBottom();
         setRemoteTyping(false); // Stop typing indicator when message received
         // Acknowledge read by calling history endpoint to mark it read on server
@@ -285,13 +300,37 @@ export default function Chat() {
     setContacts(prev => prev.map(c => c.id === contact.id ? { ...c, unreadCount: 0 } : c));
 
     try {
-      const res = await getChatHistory(contact.id, 1);
+      // Fetch appointment-based chat history (last 3 appointments)
+      const res = await getChatHistoryByAppointments(contact.id);
       if (res.status === 1) {
-        setMessages(res.data || []);
-        setPagination(res.pagination || { currentPage: 1, totalPages: 1, hasMore: false });
+        setAppointmentConversations(res.data || []);
+        // Set current appointment ID to the one marked as isCurrent
+        if (res.data && res.data.length > 0) {
+          const currentAppointment = res.data.find(conv => conv.appointment.isCurrent);
+          setCurrentAppointmentId(currentAppointment ? currentAppointment.appointment.id : res.data[0].appointment.id);
+          // Flatten messages for current view (show all messages from all appointments)
+          const allMessages = res.data.flatMap(conv => conv.messages);
+          setMessages(allMessages);
+        } else {
+          setMessages([]);
+          setCurrentAppointmentId(null);
+        }
+      } else {
+        // Show error message from backend
+        alert(res.message || "Failed to load chat");
+        setSelectedContact(null);
+        setIsMobileChatOpen(false);
       }
     } catch (err) {
       console.error("Failed to fetch chat history:", err);
+      const errorMessage = err.response?.data?.message || err.message || "Failed to load chat";
+      if (err.response?.status === 403) {
+        alert(errorMessage);
+        setSelectedContact(null);
+        setIsMobileChatOpen(false);
+      } else {
+        alert(errorMessage);
+      }
     } finally {
       setLoadingMessages(false);
     }
@@ -342,6 +381,7 @@ export default function Chat() {
     const messagePayload = {
       receiverId: selectedContact.id,
       message: newMessage.trim(),
+      appointmentId: currentAppointmentId,
       timestamp: Date.now()
     };
 
@@ -349,7 +389,22 @@ export default function Chat() {
     if (isOnline && socketRef.current && isConnected) {
       sendMessageToServer(messagePayload)
         .then((data) => {
+          // Update messages state
           setMessages((prev) => [...prev, data]);
+          
+          // Update appointmentConversations state to add message to current appointment
+          setAppointmentConversations((prev) => {
+            return prev.map((conv) => {
+              if (conv.appointment.id === currentAppointmentId) {
+                return {
+                  ...conv,
+                  messages: [...conv.messages, data]
+                };
+              }
+              return conv;
+            });
+          });
+          
           setNewMessage("");
           setIsTyping(false);
           scrollToBottom();
@@ -363,8 +418,13 @@ export default function Chat() {
         })
         .catch((err) => {
           console.error("Failed to send message:", err);
-          // Queue message for retry
-          queueMessage(messagePayload);
+          // Show error alert for payment restrictions
+          if (err.message && err.message.includes("payment")) {
+            alert(err.message);
+          } else {
+            // Queue message for retry
+            queueMessage(messagePayload);
+          }
         });
     } else {
       // Queue message when offline
@@ -388,20 +448,161 @@ export default function Chat() {
       return newQueue;
     });
 
-    // Show temporary message in UI
-    setMessages(prev => [...prev, {
+    const tempMessage = {
       id: queuedMessage.tempId,
       senderId: currentUserId,
       receiverId: messagePayload.receiverId,
+      appointmentId: messagePayload.appointmentId,
       message: messagePayload.message,
       isRead: false,
       createdAt: new Date().toISOString(),
       status: 'queued'
-    }]);
+    };
+
+    // Show temporary message in UI
+    setMessages(prev => [...prev, tempMessage]);
+    
+    // Update appointmentConversations state to add message to current appointment
+    setAppointmentConversations((prev) => {
+      return prev.map((conv) => {
+        if (conv.appointment.id === currentAppointmentId) {
+          return {
+            ...conv,
+            messages: [...conv.messages, tempMessage]
+          };
+        }
+        return conv;
+      });
+    });
 
     // Show notification
     if (!isOnline) {
       alert('You are offline. Message will be sent when you reconnect.');
+    }
+  };
+
+  // Handle file selection
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Check file size (10MB limit)
+      if (file.size > 10 * 1024 * 1024) {
+        alert('File size must be less than 10MB');
+        return;
+      }
+      
+      // Check file type (only images and documents)
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'];
+      if (!allowedTypes.includes(file.type)) {
+        alert('Only images and documents are allowed');
+        return;
+      }
+      
+      setSelectedFile(file);
+    }
+  };
+
+  // Handle file upload
+  const handleFileUpload = async () => {
+    if (!selectedFile) return;
+    
+    try {
+      setUploadingFile(true);
+      const response = await uploadAttachment(selectedFile);
+      
+      if (response.status === 1) {
+        // Send message with attachment - keep text message if user typed something
+        const messagePayload = {
+          receiverId: selectedContact.id,
+          message: newMessage.trim() || null, // Send null if no text, don't send "Attachment"
+          appointmentId: currentAppointmentId,
+          attachmentUrl: response.data.url,
+          attachmentType: response.data.type,
+          attachmentName: response.data.name,
+          attachmentSize: response.data.size,
+          timestamp: Date.now()
+        };
+
+        if (isOnline && socketRef.current && isConnected) {
+          sendMessageToServer(messagePayload)
+            .then((data) => {
+              setMessages((prev) => [...prev, data]);
+              setAppointmentConversations((prev) => {
+                return prev.map((conv) => {
+                  if (conv.appointment.id === currentAppointmentId) {
+                    return {
+                      ...conv,
+                      messages: [...conv.messages, data]
+                    };
+                  }
+                  return conv;
+                });
+              });
+              
+              setNewMessage("");
+              setSelectedFile(null);
+              setIsTyping(false);
+              scrollToBottom();
+              setContacts(prev => prev.map(c => c.id === selectedContact.id ? {
+                ...c,
+                lastMessage: {
+                  message: data.message || data.attachmentName || 'Attachment',
+                  createdAt: data.createdAt
+                }
+              } : c));
+            })
+            .catch((err) => {
+              console.error("Failed to send message:", err);
+              alert("Failed to send message. Please try again.");
+            });
+        } else {
+          // Queue message if offline
+          const queuedMessage = {
+            tempId: Date.now(),
+            ...messagePayload,
+            status: 'queued'
+          };
+          setQueuedMessages(prev => [...prev, queuedMessage]);
+          localStorage.setItem('queuedMessages', JSON.stringify([...queuedMessages, queuedMessage]));
+          
+          const tempMessage = {
+            id: queuedMessage.tempId,
+            senderId: currentUserId,
+            receiverId: messagePayload.receiverId,
+            appointmentId: messagePayload.appointmentId,
+            message: messagePayload.message,
+            attachmentUrl: messagePayload.attachmentUrl,
+            attachmentType: messagePayload.attachmentType,
+            attachmentName: messagePayload.attachmentName,
+            attachmentSize: messagePayload.attachmentSize,
+            isRead: false,
+            createdAt: new Date().toISOString(),
+            status: 'queued'
+          };
+
+          setMessages(prev => [...prev, tempMessage]);
+          setAppointmentConversations((prev) => {
+            return prev.map((conv) => {
+              if (conv.appointment.id === currentAppointmentId) {
+                return {
+                  ...conv,
+                  messages: [...conv.messages, tempMessage]
+                };
+              }
+              return conv;
+            });
+          });
+
+          setNewMessage("");
+          setSelectedFile(null);
+          alert('You are offline. Message will be sent when you reconnect.');
+        }
+      }
+    } catch (error) {
+      console.error("Upload error:", error);
+      alert("Failed to upload file. Please try again.");
+    } finally {
+      setUploadingFile(false);
     }
   };
 
@@ -883,137 +1084,218 @@ export default function Chat() {
                     </p>
                   </div>
                 ) : (
-                  Object.keys(messageGroups).map((dateGroup) => (
-                    <div key={dateGroup} className="space-y-4 relative z-10">
-                      
-                      {/* Clean Date Badge */}
-                      <div className="flex justify-center my-6">
-                        <span className="text-[10px] font-extrabold text-slate-500 bg-slate-100/80 border border-slate-200/50 px-3.5 py-1.5 rounded-full uppercase tracking-wider shadow-2xs">
-                          {dateGroup}
-                        </span>
-                      </div>
-
-                      {messageGroups[dateGroup].map((msg) => {
-                        const isMine = msg.senderId === currentUserId;
-                        const isEditing = editingMessage === msg.id;
-                        return (
-                          <div
-                            key={msg.id}
-                            data-message-id={msg.id}
-                            className={`flex ${isMine ? "justify-end" : "justify-start"}`}
-                          >
-                            <div
-                              className={`max-w-[65%] px-4 py-3 text-sm shadow-2xs transition-all relative ${
-                                isMine
-                                  ? "bg-gradient-to-r from-brand-primary to-brand-hover text-white rounded-3xl rounded-tr-none"
-                                  : "bg-white text-slate-800 border border-slate-150 rounded-3xl rounded-tl-none"
-                              }`}
-                            >
-                              {isEditing ? (
-                                <div className="space-y-2">
-                                  <textarea
-                                    value={editText}
-                                    onChange={(e) => setEditText(e.target.value)}
-                                    className="w-full bg-white/10 border border-white/20 rounded-lg p-2 text-sm text-white placeholder-white/50 resize-none focus:outline-none focus:ring-2 focus:ring-white/30"
-                                    rows={3}
-                                    autoFocus
-                                  />
-                                  <div className="flex items-center gap-2 justify-end">
-                                    <button
-                                      onClick={handleCancelEdit}
-                                      className="px-3 py-1 text-xs font-semibold bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
-                                    >
-                                      Cancel
-                                    </button>
-                                    <button
-                                      onClick={handleSaveEdit}
-                                      className="px-3 py-1 text-xs font-semibold bg-white text-brand-primary hover:bg-white/90 rounded-lg transition-colors"
-                                    >
-                                      Save
-                                    </button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <>
-                                  {/* Temporarily disabled - frontend developer overwhelmed */}
-                                  {/* {msg.attachmentUrl && (
-                                    <div className="mb-2">
-                                      {msg.attachmentType === 'image' ? (
-                                        <img 
-                                          src={msg.attachmentUrl} 
-                                          alt={msg.attachmentName || 'Attachment'} 
-                                          className="max-w-full h-auto rounded-lg"
-                                          onClick={() => window.open(msg.attachmentUrl, '_blank')}
-                                          style={{ maxHeight: '200px' }}
-                                        />
-                                      ) : (
-                                        <a 
-                                          href={msg.attachmentUrl} 
-                                          target="_blank" 
-                                          rel="noopener noreferrer"
-                                          className={`flex items-center gap-2 p-2 rounded-lg ${isMine ? 'bg-white/10 hover:bg-white/20' : 'bg-slate-100 hover:bg-slate-200'} transition-colors`}
-                                        >
-                                          <Paperclip size={16} />
-                                          <span className="text-xs truncate max-w-[200px]">{msg.attachmentName || 'Attachment'}</span>
-                                        </a>
-                                      )}
-                                    </div>
-                                  )} */}
-                                  {msg.message && (
-                                    <p className="leading-relaxed whitespace-pre-wrap font-medium">{msg.message}</p>
+                  appointmentConversations.length > 0 ? (
+                    appointmentConversations.map((conversation, convIndex) => (
+                      <div key={conversation.appointment.id || 'legacy'} className="space-y-4 relative z-10 mb-8">
+                        {/* Appointment Section Header */}
+                        <div className={`bg-gradient-to-r ${conversation.appointment.appointmentId === 'LEGACY' ? 'from-amber-50/50 to-slate-50 border-amber-200/30' : 'from-brand-light/50 to-slate-50 border-brand-primary/20'} border rounded-2xl p-4 mb-4 shadow-sm`}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${conversation.appointment.appointmentId === 'LEGACY' ? 'bg-amber-100' : 'bg-brand-primary/10'}`}>
+                                {conversation.appointment.appointmentId === 'LEGACY' ? (
+                                  <MessageCircle size={18} className="text-amber-600" />
+                                ) : (
+                                  <Activity size={18} className="text-brand-primary" />
+                                )}
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className={`text-xs font-bold uppercase tracking-wider ${conversation.appointment.appointmentId === 'LEGACY' ? 'text-amber-700' : 'text-brand-primary'}`}>
+                                    {conversation.appointment.appointmentId === 'LEGACY' ? 'Previous Messages' : `Appointment #${conversation.appointment.appointmentId || conversation.appointment.id}`}
+                                  </span>
+                                  {conversation.appointment.appointmentId !== 'LEGACY' && (
+                                    <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full ${
+                                      conversation.appointment.status === 'paid' ? 'bg-emerald-100 text-emerald-700' :
+                                      conversation.appointment.status === 'completed' ? 'bg-blue-100 text-blue-700' :
+                                      'bg-slate-100 text-slate-600'
+                                    }`}>
+                                      {conversation.appointment.status}
+                                    </span>
                                   )}
-                                  <div className={`flex items-center justify-between mt-2 ${isMine ? "text-white/80" : "text-slate-400"}`}>
-                                    <div className="flex items-center gap-1.5 text-[9px] font-bold">
-                                      <span>{formatMessageTime(msg.createdAt)}</span>
-                                      {isMine && (
-                                        msg.isRead ? (
-                                          <CheckCheck size={12} className="text-white" />
-                                        ) : (
-                                          <Check size={12} className="text-white/80" />
-                                        )
-                                      )}
-                                    </div>
-                                    {isMine && (
-                                      <div className="flex items-center gap-1">
+                                </div>
+                                {conversation.appointment.appointmentId !== 'LEGACY' && (
+                                  <div className="text-xs text-slate-500 font-semibold mt-1">
+                                    {new Date(conversation.appointment.appointmentDateTime).toLocaleString("en-US", {
+                                      weekday: 'short',
+                                      year: 'numeric',
+                                      month: 'short',
+                                      day: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            {conversation.appointment.isCurrent && conversation.appointment.appointmentId !== 'LEGACY' && (
+                              <span className="text-[9px] font-extrabold bg-brand-primary text-white px-2 py-1 rounded-full uppercase tracking-wider">
+                                Current
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Messages for this appointment */}
+                        {conversation.messages.length > 0 ? (
+                          conversation.messages.map((msg) => {
+                            const isMine = msg.senderId === currentUserId;
+                            const isEditing = editingMessage === msg.id;
+                            return (
+                              <div
+                                key={msg.id}
+                                data-message-id={msg.id}
+                                className={`flex ${isMine ? "justify-end" : "justify-start"}`}
+                              >
+                                <div
+                                  className={`max-w-[65%] px-4 py-3 text-sm shadow-2xs transition-all relative ${
+                                    isMine
+                                      ? "bg-gradient-to-r from-brand-primary to-brand-hover text-white rounded-3xl rounded-tr-none"
+                                      : "bg-white text-slate-800 border border-slate-150 rounded-3xl rounded-tl-none"
+                                  }`}
+                                >
+                                  {isEditing ? (
+                                    <div className="space-y-2">
+                                      <textarea
+                                        value={editText}
+                                        onChange={(e) => setEditText(e.target.value)}
+                                        className="w-full bg-white/10 border border-white/20 rounded-lg p-2 text-sm text-white placeholder-white/50 resize-none focus:outline-none focus:ring-2 focus:ring-white/30"
+                                        rows={3}
+                                        autoFocus
+                                      />
+                                      <div className="flex items-center gap-2 justify-end">
                                         <button
-                                          onClick={() => handleEditMessage(msg)}
-                                          className="p-1 hover:bg-white/10 rounded transition-colors"
-                                          title="Edit message"
+                                          onClick={handleCancelEdit}
+                                          className="px-3 py-1 text-xs font-semibold bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
                                         >
-                                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                                          </svg>
+                                          Cancel
                                         </button>
                                         <button
-                                          onClick={() => handleDeleteMessage(msg.id)}
-                                          className="p-1 hover:bg-white/10 rounded transition-colors"
-                                          title="Delete message"
+                                          onClick={handleSaveEdit}
+                                          className="px-3 py-1 text-xs font-semibold bg-white text-brand-primary hover:bg-white/90 rounded-lg transition-colors"
                                         >
-                                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                            <path d="M3 6h18"/>
-                                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
-                                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
-                                          </svg>
+                                          Save
                                         </button>
                                       </div>
-                                    )}
-                                  </div>
-                                </>
-                              )}
-                            </div>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      {msg.attachmentUrl && (
+                                        <div className="mb-2">
+                                          {msg.attachmentType === 'image' ? (
+                                            <img 
+                                              src={msg.attachmentUrl} 
+                                              alt="Attachment" 
+                                              className="max-w-[200px] max-h-[200px] h-auto rounded-lg cursor-pointer hover:opacity-90 transition-opacity object-cover"
+                                              onClick={() => window.open(msg.attachmentUrl, '_blank')}
+                                            />
+                                          ) : (
+                                            <div className="flex items-center gap-2 bg-white/10 p-2 rounded-lg">
+                                              <Paperclip size={16} />
+                                              <a 
+                                                href={msg.attachmentUrl} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer"
+                                                className="text-sm underline hover:text-white/80"
+                                              >
+                                                {msg.attachmentName || 'Document'}
+                                              </a>
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+                                      {msg.message && (
+                                        <p className="leading-relaxed whitespace-pre-wrap font-medium">{msg.message}</p>
+                                      )}
+                                      <div className={`flex items-center justify-between mt-2 ${isMine ? "text-white/80" : "text-slate-400"}`}>
+                                        <div className="flex items-center gap-1.5 text-[9px] font-bold">
+                                          <span>{formatMessageTime(msg.createdAt)}</span>
+                                          {isMine && (
+                                            msg.isRead ? (
+                                              <CheckCheck size={12} className="text-white" />
+                                            ) : (
+                                              <Check size={12} className="text-white/80" />
+                                            )
+                                          )}
+                                        </div>
+                                        {isMine && (
+                                          <div className="flex items-center gap-1">
+                                            <button
+                                              onClick={() => handleEditMessage(msg)}
+                                              className="p-1 hover:bg-white/10 rounded transition-colors"
+                                              title="Edit message"
+                                            >
+                                              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                                              </svg>
+                                            </button>
+                                            <button
+                                              onClick={() => handleDeleteMessage(msg.id)}
+                                              className="p-1 hover:bg-white/10 rounded transition-colors"
+                                              title="Delete message"
+                                            >
+                                              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M3 6h18"/>
+                                                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+                                                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+                                              </svg>
+                                            </button>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <div className="text-center py-4">
+                            <p className="text-xs text-slate-400">No messages in this appointment</p>
                           </div>
-                        );
-                      })}
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full text-center py-10 px-6 relative z-10">
+                      <div className="w-16 h-16 bg-brand-light rounded-2xl flex items-center justify-center mb-4 border border-brand-primary/10 shadow-xs">
+                        <MessageSquare size={24} className="text-brand-primary stroke-[2]" />
+                      </div>
+                      <p className="text-sm font-bold text-slate-800">Secure Thread Started</p>
+                      <p className="text-xs text-slate-400 mt-2 max-w-[280px] leading-relaxed">
+                        Begin exchanging medical information, prescription logs, or symptom updates. This portal is secure and HIPAA compliant.
+                      </p>
                     </div>
-                  ))
+                  )
                 )}
                 <div ref={messagesEndRef} />
               </div>
 
               {/* Floating Input Footer Panel */}
-              <form onSubmit={handleSendMessage} className="p-4 bg-white border-t border-slate-100 flex items-center gap-3">
+              <form onSubmit={handleSendMessage} className="p-4 bg-white border-t border-slate-100 flex items-center gap-3 relative">
                 <div className="flex-1 flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-2xl p-1.5 px-4 focus-within:bg-white focus-within:border-brand-primary/40 focus-within:ring-4 focus-within:ring-brand-primary/5 transition-all relative">
+                  {/* Attachment button - only for doctors */}
+                  {userRole === 'doctor' && (
+                    <>
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleFileSelect}
+                        className="hidden"
+                        accept="image/*,.pdf,.doc,.docx,.txt"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploadingFile}
+                        className={`p-2 rounded-xl transition-all ${selectedFile ? 'text-brand-primary bg-slate-100' : 'text-slate-450 hover:text-brand-primary hover:bg-slate-100'} ${uploadingFile ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        aria-label="Attach file"
+                      >
+                        <Paperclip size={18} />
+                      </button>
+                    </>
+                  )}
+                  
                   <input
                     type="text"
                     placeholder="Send a secure prescription query or health update..."
@@ -1047,12 +1329,52 @@ export default function Chat() {
                     )}
                   </div>
                 </div>
+                
+                {/* Selected file preview */}
+                {selectedFile && (
+                  <div className="absolute -top-16 left-0 right-0 bg-white border border-slate-200 rounded-xl p-2 shadow-lg flex items-center gap-2 z-20">
+                    {selectedFile.type.startsWith('image/') ? (
+                      <img 
+                        src={URL.createObjectURL(selectedFile)} 
+                        alt="Preview" 
+                        className="w-12 h-12 object-cover rounded-lg"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center">
+                        <Paperclip size={16} className="text-slate-400" />
+                      </div>
+                    )}
+                    <div className="flex-1 flex flex-col">
+                      <span className="text-xs text-slate-600 truncate max-w-[150px]">{selectedFile.name}</span>
+                      <span className="text-xs text-slate-400">({(selectedFile.size / 1024).toFixed(1)} KB)</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedFile(null)}
+                      className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M18 6L6 18M6 6l12 12"/>
+                      </svg>
+                    </button>
+                  </div>
+                )}
+                
                 <button
                   type="submit"
-                  disabled={!newMessage.trim()}
+                  disabled={(!newMessage.trim() && !selectedFile) || uploadingFile}
+                  onClick={selectedFile ? handleFileUpload : undefined}
                   className="h-11 w-11 rounded-2xl bg-brand-primary hover:bg-brand-primary/95 text-white flex items-center justify-center transition-all shadow-md shadow-brand-primary/15 hover:shadow-brand-primary/25 disabled:opacity-50 disabled:shadow-none active:scale-95 flex-shrink-0"
                 >
-                  <Send size={16} className="stroke-[2]" />
+                  {uploadingFile ? (
+                    <div className="animate-spin">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                      </svg>
+                    </div>
+                  ) : (
+                    <Send size={16} className="stroke-[2]" />
+                  )}
                 </button>
               </form>
 

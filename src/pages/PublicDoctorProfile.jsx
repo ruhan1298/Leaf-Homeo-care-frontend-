@@ -1,20 +1,26 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { 
-  User, 
-  Mail, 
-  Phone, 
-  Calendar, 
+import {
+  User,
+  Mail,
+  Phone,
+  Calendar,
   Stethoscope,
   GraduationCap,
   Award,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  MapPin,
+  Clock,
+  Star,
+  Video,
+  ArrowLeft,
+  CheckCircle
 } from "lucide-react";
 import { getPublicDoctorProfile } from "../api/doctorApi";
 
 export default function PublicDoctorProfile() {
-  const { id } = useParams();
+  const { name } = useParams();
   const navigate = useNavigate();
   const [profileData, setProfileData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -25,7 +31,7 @@ export default function PublicDoctorProfile() {
       try {
         setLoading(true);
         setError(null);
-        const response = await getPublicDoctorProfile(id);
+        const response = await getPublicDoctorProfile(name);
         if (response.status === 1) {
           setProfileData(response.data);
         } else {
@@ -39,7 +45,7 @@ export default function PublicDoctorProfile() {
       }
     };
     fetchProfile();
-  }, [id]);
+  }, [name]);
 
   if (loading) {
     return (
@@ -82,153 +88,290 @@ export default function PublicDoctorProfile() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-brand-light/30 to-white py-8 px-4">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-extrabold text-gray-900 mb-2">Doctor Profile</h1>
-          <p className="text-gray-500">View doctor's professional information</p>
-        </div>
+      <div className="max-w-6xl mx-auto">
+        {/* Back Button */}
+        <button
+          onClick={() => navigate(-1)}
+          className="flex items-center text-gray-500 hover:text-gray-700 mb-6 font-medium"
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" /> Back
+        </button>
 
-        {/* Profile Card */}
-        <div className="bg-white border-2 border-gray-100 rounded-2xl overflow-hidden">
-          {/* Profile Header */}
-          <div className="bg-gradient-to-r from-brand-primary to-brand-hover p-8 text-white">
-            <div className="flex items-center gap-6">
-              <div className="w-24 h-24 rounded-2xl bg-white/20 backdrop-blur-sm overflow-hidden border-2 border-white/30">
+        {/* Profile Header Card */}
+        <div className="bg-white border-2 border-gray-100 rounded-3xl overflow-hidden shadow-lg mb-6">
+          {/* Cover Image */}
+          <div className="h-56 bg-gradient-to-r from-brand-primary via-brand-hover to-purple-600 relative">
+            <div className="absolute inset-0 bg-black/10" />
+            <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-white to-transparent" />
+          </div>
+
+          {/* Profile Info */}
+          <div className="px-8 pb-8">
+            <div className="flex flex-col md:flex-row items-start md:items-end gap-6 -mt-24 relative">
+              {/* Profile Image */}
+              <div className="w-40 h-40 rounded-3xl bg-white overflow-hidden border-4 border-white shadow-2xl shrink-0">
                 <img
-                  src={profileData.image}
+                  src={profileData.image || "https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=300&q=80"}
                   alt={profileData.name}
                   className="w-full h-full object-cover"
                 />
               </div>
-              <div>
-                <h2 className="text-2xl font-bold">{profileData.name}</h2>
-                <p className="text-white/70 mt-1 text-sm">{profileData.specialization}</p>
-                {profileData.IsExpert && (
-                  <span className="inline-block mt-2 px-3 py-1 bg-white/20 rounded-full text-xs font-medium">
-                    Expert Doctor
-                  </span>
-                )}
+
+              {/* Name and Basic Info */}
+              <div className="flex-1 pt-4">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <h1 className="text-4xl font-extrabold text-gray-900">{profileData.name}</h1>
+                  {profileData.IsExpert && (
+                    <span className="inline-flex items-center gap-1 px-4 py-1.5 bg-amber-100 text-amber-700 rounded-full text-sm font-bold border border-amber-200">
+                      <Award size={14} />
+                      Expert Doctor
+                    </span>
+                  )}
+                </div>
+                <p className="text-xl text-brand-primary font-semibold mt-2">{profileData.specialization}</p>
+                <div className="flex items-center gap-6 mt-4 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <Star className="h-5 w-5 text-amber-400 fill-amber-400" />
+                    <span className="text-lg font-bold text-gray-900">{profileData.averageRating || "0.0"}</span>
+                    <span className="text-sm text-gray-400">({profileData.totalReviews || 0} reviews)</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <Clock size={18} />
+                    <span className="text-base font-medium">{profileData.experience || "0"} years experience</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <CheckCircle size={18} className="text-green-500" />
+                    <span className="text-base font-medium">Verified</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Consultation Fee */}
+              <div className="bg-gradient-to-br from-brand-light to-brand-primary/30 rounded-2xl p-6 text-center border-2 border-brand-primary/20">
+                <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider">Consultation Fee</p>
+                <p className="text-3xl font-extrabold text-brand-primary mt-1">{formatCurrency(profileData.consultationFee)}</p>
+                <p className="text-xs text-gray-400 mt-1">per session</p>
+              </div>
+            </div>
+
+            {/* Bio */}
+            {profileData.bio && (
+              <div className="mt-8 p-6 bg-gradient-to-r from-gray-50 to-brand-light/30 rounded-2xl border border-gray-100">
+                <h3 className="text-base font-bold text-gray-900 mb-3 flex items-center gap-2">
+                  <User className="h-5 w-5 text-brand-primary" />
+                  About Dr. {profileData.name?.split(' ')[1] || 'Doctor'}
+                </h3>
+                <p className="text-base text-gray-700 leading-relaxed">{profileData.bio}</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Details Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          {/* Personal Information */}
+          <div className="bg-white border-2 border-gray-100 rounded-2xl p-6 shadow-sm">
+            <h3 className="text-lg font-extrabold text-gray-900 mb-5 flex items-center gap-2">
+              <User className="h-5 w-5 text-brand-primary" />
+              Personal Information
+            </h3>
+            <div className="space-y-5">
+              <div className="flex items-start gap-3">
+                <div className="p-2.5 bg-brand-light rounded-xl shrink-0">
+                  <User className="h-4 w-4 text-brand-primary" />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Full Name</p>
+                  <p className="text-sm font-medium text-gray-900 mt-0.5">{profileData.name || "-"}</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="p-2.5 bg-brand-light rounded-xl shrink-0">
+                  <Mail className="h-4 w-4 text-brand-primary" />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Email Address</p>
+                  <p className="text-sm font-medium text-gray-900 mt-0.5">{profileData.email || "-"}</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="p-2.5 bg-brand-light rounded-xl shrink-0">
+                  <Phone className="h-4 w-4 text-brand-primary" />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Mobile Number</p>
+                  <p className="text-sm font-medium text-gray-900 mt-0.5">{profileData.mobile || "-"}</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="p-2.5 bg-brand-light rounded-xl shrink-0">
+                  <Calendar className="h-4 w-4 text-brand-primary" />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Joined Date</p>
+                  <p className="text-sm font-medium text-gray-900 mt-0.5">{formatDate(profileData.joinedDate)}</p>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Profile Details */}
-          <div className="p-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Personal Information */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">Personal Information</h3>
-                
-                <div className="flex items-start gap-3">
-                  <div className="p-2 bg-brand-light rounded-xl">
-                    <User className="h-5 w-5 text-brand-primary" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400 font-semibold">Full Name</p>
-                    <p className="text-sm font-medium text-gray-900">{profileData.name || "-"}</p>
-                  </div>
+          {/* Professional Information */}
+          <div className="bg-white border-2 border-gray-100 rounded-2xl p-6 shadow-sm">
+            <h3 className="text-lg font-extrabold text-gray-900 mb-5 flex items-center gap-2">
+              <Stethoscope className="h-5 w-5 text-brand-primary" />
+              Professional Information
+            </h3>
+            <div className="space-y-5">
+              <div className="flex items-start gap-3">
+                <div className="p-2.5 bg-brand-light rounded-xl shrink-0">
+                  <Stethoscope className="h-4 w-4 text-brand-primary" />
                 </div>
-
-                <div className="flex items-start gap-3">
-                  <div className="p-2 bg-brand-light rounded-xl">
-                    <Mail className="h-5 w-5 text-brand-primary" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400 font-semibold">Email Address</p>
-                    <p className="text-sm font-medium text-gray-900">{profileData.email || "-"}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <div className="p-2 bg-brand-light rounded-xl">
-                    <Phone className="h-5 w-5 text-brand-primary" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400 font-semibold">Mobile Number</p>
-                    <p className="text-sm font-medium text-gray-900">{profileData.mobile || "-"}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <div className="p-2 bg-brand-light rounded-xl">
-                    <Calendar className="h-5 w-5 text-brand-primary" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400 font-semibold">Joined Date</p>
-                    <p className="text-sm font-medium text-gray-900">{formatDate(profileData.joinedDate)}</p>
-                  </div>
+                <div>
+                  <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Specialization</p>
+                  <p className="text-sm font-medium text-gray-900 mt-0.5">{profileData.specialization || "-"}</p>
                 </div>
               </div>
-
-              {/* Professional Information */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">Professional Information</h3>
-                
-                <div className="flex items-start gap-3">
-                  <div className="p-2 bg-brand-light rounded-xl">
-                    <Stethoscope className="h-5 w-5 text-brand-primary" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400 font-semibold">Specialization</p>
-                    <p className="text-sm font-medium text-gray-900">{profileData.specialization || "-"}</p>
-                  </div>
+              <div className="flex items-start gap-3">
+                <div className="p-2.5 bg-brand-light rounded-xl shrink-0">
+                  <GraduationCap className="h-4 w-4 text-brand-primary" />
                 </div>
-
-                <div className="flex items-start gap-3">
-                  <div className="p-2 bg-brand-light rounded-xl">
-                    <GraduationCap className="h-5 w-5 text-brand-primary" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400 font-semibold">Qualification</p>
-                    <p className="text-sm font-medium text-gray-900">{profileData.qualification || "-"}</p>
-                  </div>
+                <div>
+                  <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Qualification</p>
+                  <p className="text-sm font-medium text-gray-900 mt-0.5">{profileData.qualification || "-"}</p>
                 </div>
-
-                <div className="flex items-start gap-3">
-                  <div className="p-2 bg-brand-light rounded-xl">
-                    <Award className="h-5 w-5 text-brand-primary" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400 font-semibold">Experience</p>
-                    <p className="text-sm font-medium text-gray-900">{profileData.experience ? `${profileData.experience} years` : "-"}</p>
-                  </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="p-2.5 bg-brand-light rounded-xl shrink-0">
+                  <Award className="h-4 w-4 text-brand-primary" />
                 </div>
-
-                <div className="flex items-start gap-3">
-                  <div className="p-2 bg-brand-light rounded-xl">
-                    <Award className="h-5 w-5 text-brand-primary" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400 font-semibold">Consultation Fee</p>
-                    <p className="text-sm font-medium text-gray-900">{formatCurrency(profileData.consultationFee)}</p>
-                  </div>
+                <div>
+                  <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Experience</p>
+                  <p className="text-sm font-medium text-gray-900 mt-0.5">{profileData.experience ? `${profileData.experience} years` : "-"}</p>
                 </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="p-2.5 bg-brand-light rounded-xl shrink-0">
+                  <MapPin className="h-4 w-4 text-brand-primary" />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Location</p>
+                  <p className="text-sm font-medium text-gray-900 mt-0.5">Available Online</p>
+                </div>
+              </div>
+            </div>
+          </div>
 
-                <div className="flex items-start gap-3">
-                  <div className="p-2 bg-brand-light rounded-xl">
-                    <User className="h-5 w-5 text-brand-primary" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400 font-semibold">Bio</p>
-                    <p className="text-sm font-medium text-gray-900">{profileData.bio || "-"}</p>
-                  </div>
+          {/* Consultation Info */}
+          <div className="bg-white border-2 border-gray-100 rounded-2xl p-6 shadow-sm">
+            <h3 className="text-lg font-extrabold text-gray-900 mb-5 flex items-center gap-2">
+              <Video className="h-5 w-5 text-brand-primary" />
+              Consultation Details
+            </h3>
+            <div className="space-y-5">
+              <div className="flex items-start gap-3">
+                <div className="p-2.5 bg-brand-light rounded-xl shrink-0">
+                  <Video className="h-4 w-4 text-brand-primary" />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Consultation Type</p>
+                  <p className="text-sm font-medium text-gray-900 mt-0.5">Video Consultation</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="p-2.5 bg-brand-light rounded-xl shrink-0">
+                  <Clock className="h-4 w-4 text-brand-primary" />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Duration</p>
+                  <p className="text-sm font-medium text-gray-900 mt-0.5">30 minutes</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="p-2.5 bg-brand-light rounded-xl shrink-0">
+                  <Award className="h-4 w-4 text-brand-primary" />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Consultation Fee</p>
+                  <p className="text-sm font-bold text-brand-primary mt-0.5">{formatCurrency(profileData.consultationFee)}</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="p-2.5 bg-brand-light rounded-xl shrink-0">
+                  <CheckCircle className="h-4 w-4 text-brand-primary" />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Availability</p>
+                  <p className="text-sm font-medium text-green-600 mt-0.5">Available Today</p>
                 </div>
               </div>
             </div>
           </div>
         </div>
+
+        {/* Reviews Section */}
+        {profileData.reviews && profileData.reviews.length > 0 && (
+          <div className="bg-white border-2 border-gray-100 rounded-2xl p-6 shadow-sm mb-6">
+            <h3 className="text-lg font-extrabold text-gray-900 mb-5 flex items-center gap-2">
+              <Star className="h-5 w-5 text-brand-primary" />
+              Patient Reviews ({profileData.totalReviews || 0})
+            </h3>
+            <div className="space-y-4">
+              {profileData.reviews.map((review) => (
+                <div key={review.id} className="border-b border-gray-100 pb-4 last:border-0 last:pb-0">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-900">{review.patientName || "Anonymous"}</span>
+                      <div className="flex items-center gap-1">
+                        {[...Array(5)].map((_, i) => (
+                          <Star
+                            key={i}
+                            size={14}
+                            className={i < review.rating ? "text-amber-400 fill-amber-400" : "text-gray-300"}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    <span className="text-xs text-gray-400">
+                      {new Date(review.createdAt).toLocaleDateString("en-IN", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric"
+                      })}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-700">{review.review}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Book Appointment CTA */}
-        <div className="mt-6 text-center">
-          <button
-            onClick={() => navigate("/register")}
-            className="px-8 py-3 bg-brand-primary text-white rounded-xl font-medium hover:bg-brand-hover transition-all"
-          >
-            Book Appointment
-          </button>
-          <p className="mt-2 text-sm text-gray-500">Create an account to book an appointment with this doctor</p>
+        <div className="bg-gradient-to-r from-brand-primary to-brand-hover rounded-3xl p-8 text-white shadow-2xl">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-4">
+              <div className="p-4 bg-white/20 rounded-2xl">
+                <Video className="h-8 w-8" />
+              </div>
+              <div>
+                <h3 className="text-2xl font-bold">Book Your Consultation Now</h3>
+                <p className="text-base text-white/90 mt-1">Secure video consultation with Dr. {profileData.name?.split(' ')[1] || 'Doctor'}</p>
+                <p className="text-sm text-white/70 mt-2">Available for appointments today</p>
+              </div>
+            </div>
+            <button
+              onClick={() => navigate("/register")}
+              className="px-8 py-4 bg-white text-brand-primary rounded-2xl font-bold hover:bg-gray-100 transition-all flex items-center gap-3 text-lg shadow-xl"
+            >
+              <Calendar size={20} />
+              Book Appointment
+            </button>
+          </div>
         </div>
+
+        <p className="mt-4 text-center text-sm text-gray-500">
+          Create an account to book an appointment with this doctor
+        </p>
       </div>
     </div>
   );

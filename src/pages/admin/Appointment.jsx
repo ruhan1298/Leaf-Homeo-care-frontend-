@@ -299,12 +299,6 @@ export default function AppointmentManagement() {
                     <td className="px-6 py-4.5 text-gray-600 whitespace-nowrap text-sm max-w-xs truncate" title={appt.notes}>{appt.notes || "-"}</td>
                     <td className="px-6 py-4.5 text-right whitespace-nowrap">
                       <div className="flex items-center justify-end gap-2">
-                        <button className="text-xs font-semibold px-3 py-1.5 rounded-xl border border-brand-primary text-brand-primary hover:bg-brand-primary hover:text-white transition-all cursor-pointer">
-                          Reschedule
-                        </button>
-                        <button className="text-xs font-semibold px-3 py-1.5 rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 transition-all cursor-pointer">
-                          Cancel
-                        </button>
                         <button className="text-gray-400 hover:text-gray-600 transition-colors p-1.5 rounded-lg">
                           <MoreVertical size={16} />
                         </button>
@@ -387,12 +381,6 @@ export default function AppointmentManagement() {
                 </div>
 
                 <div className="flex items-center gap-2 pt-4 border-t border-gray-100">
-                  <button className="flex-1 text-xs font-semibold px-3 py-2.5 rounded-xl border border-brand-primary text-brand-primary hover:bg-brand-primary hover:text-white transition-all cursor-pointer">
-                    Reschedule
-                  </button>
-                  <button className="flex-grow-0 text-xs font-semibold px-3 py-2.5 rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 transition-all cursor-pointer">
-                    Cancel
-                  </button>
                   <button className="text-gray-400 hover:text-gray-600 transition-colors p-2 rounded-xl border border-gray-100">
                     <MoreVertical size={16} />
                   </button>

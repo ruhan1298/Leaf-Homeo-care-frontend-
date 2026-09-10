@@ -11,6 +11,9 @@ import AdminPatients from "../pages/admin/Patient";
 import AdminAppointments from "../pages/admin/Appointment";
 import AdminProfile from "../pages/admin/Profile";
 import AdminForgotPassword from "../pages/admin/ForgotPassword";
+import LegalDocuments from "../pages/admin/LegalDocuments";
+import BlogManagement from "../pages/admin/Blog";
+import AdminCoupons from "../pages/admin/Coupons";
 import DoctorSelection from "../pages/patient/DoctorSelection";
 import AppointmentDetails from "../pages/patient/AppointmentDetails";
 import BookAnyDoctor from "../pages/patient/BookAnyDoctor";
@@ -20,6 +23,8 @@ import EditProfile from "../pages/patient/EditProfile";
 import ChangePassword from "../pages/patient/ChangePassword";
 import CompleteProfile from "../pages/patient/CompleteProfile";
 import Notifications from "../pages/patient/Notifications";
+import PrivacyPolicyView from "../pages/patient/PrivacyPolicy";
+import TermsConditionsView from "../pages/patient/TermsConditions";
 import ProtectedRoute from "../components/ProtectedRoute";
 import DoctorDashboard from "../pages/doctor/Dashboard";
 import DoctorAppointments from "../pages/doctor/Appointments";
@@ -31,31 +36,45 @@ import DoctorAvailability from "../pages/doctor/Availability";
 import DoctorNotifications from "../pages/doctor/Notifications";
 import DoctorEditProfile from "../pages/doctor/EditProfile";
 import DoctorChangePassword from "../pages/doctor/ChangePassword";
+import DoctorSetupPassword from "../pages/doctor/SetupPassword";
 import PatientVideoCall from "../pages/patient/VideoCall";
 import DoctorVideoCall from "../pages/doctor/VideoCall";
 import PublicDoctorProfile from "../pages/PublicDoctorProfile";
 import Chat from "../pages/Chat";
+import DoctorDetails from "../pages/patient/DoctorDetails";
+import LandingPage from "../pages/LandingPage";
+import TermsAndConditions from "../pages/TermsAndConditions";
+import PrivacyPolicy from "../pages/PrivacyPolicy";
+import PatientBlog from "../pages/patient/Blog";
+import DoctorBlog from "../pages/doctor/Blog";
 
 
 function AppRouter() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/login" replace />} />
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/terms" element={<TermsAndConditions />} />
+      <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/register" element={<Register />} />
       <Route path="/login" element={<Login />} />
       <Route path="/doctor/login" element={<DoctorLogin />} />
+      <Route path="/doctor/setup-password" element={<DoctorSetupPassword />} />
       <Route path="/admin/login" element={<AdminLogin />} />
       {/* Public route - no authentication required */}
-      <Route path="/doctors/:id" element={<PublicDoctorProfile />} />
+      <Route path="/doctors/:name" element={<PublicDoctorProfile />} />
       <Route path="/admin/forgot-password" element={<AdminForgotPassword />} />
       <Route path="/admin/dashboard" element={<ProtectedRoute allowedRole="admin"><AdminDashboard /></ProtectedRoute>} />
       <Route path="/admin/doctors" element={<ProtectedRoute allowedRole="admin"><AdminDoctors /></ProtectedRoute>} />
       <Route path="/admin/patients" element={<ProtectedRoute allowedRole="admin"><AdminPatients /></ProtectedRoute>} />
       <Route path="/admin/appointments" element={<ProtectedRoute allowedRole="admin"><AdminAppointments /></ProtectedRoute>} />
       <Route path="/admin/profile" element={<ProtectedRoute allowedRole="admin"><AdminProfile /></ProtectedRoute>} />
+      <Route path="/admin/legal-documents" element={<ProtectedRoute allowedRole="admin"><LegalDocuments /></ProtectedRoute>} />
+      <Route path="/admin/blogs" element={<ProtectedRoute allowedRole="admin"><BlogManagement /></ProtectedRoute>} />
+      <Route path="/admin/coupons" element={<ProtectedRoute allowedRole="admin"><AdminCoupons /></ProtectedRoute>} />
       <Route path="/patient/dashboard" element={<ProtectedRoute allowedRole="patient" requireCompleteProfile><PatientDashboard /></ProtectedRoute>} />
       <Route path="/patient/book" element={<ProtectedRoute allowedRole="patient" requireCompleteProfile><PatientBookAppointment /></ProtectedRoute>} />
       <Route path="/patient/doctors" element={<ProtectedRoute allowedRole="patient" requireCompleteProfile><DoctorSelection /></ProtectedRoute>} />
+      <Route path="/patient/doctors/:slug" element={<ProtectedRoute allowedRole="patient" requireCompleteProfile><DoctorDetails /></ProtectedRoute>} />
       <Route path="/patient/book/doctor" element={<ProtectedRoute allowedRole="patient" requireCompleteProfile><AppointmentDetails /></ProtectedRoute>} />
       <Route path="/patient/book/any-doctor" element={<ProtectedRoute allowedRole="patient" requireCompleteProfile><BookAnyDoctor /></ProtectedRoute>} />
       <Route path="/patient/appointments" element={<ProtectedRoute allowedRole="patient" requireCompleteProfile><MyAppointments /></ProtectedRoute>} />
@@ -64,6 +83,9 @@ function AppRouter() {
       <Route path="/patient/profile/change-password" element={<ProtectedRoute allowedRole="patient" requireCompleteProfile><ChangePassword /></ProtectedRoute>} />
       <Route path="/patient/complete-profile" element={<ProtectedRoute allowedRole="patient"><CompleteProfile /></ProtectedRoute>} />
       <Route path="/patient/notifications" element={<ProtectedRoute allowedRole="patient" requireCompleteProfile><Notifications /></ProtectedRoute>} />
+      <Route path="/patient/privacy-policy" element={<ProtectedRoute allowedRole="patient" requireCompleteProfile><PrivacyPolicyView /></ProtectedRoute>} />
+      <Route path="/patient/terms-conditions" element={<ProtectedRoute allowedRole="patient" requireCompleteProfile><TermsConditionsView /></ProtectedRoute>} />
+      <Route path="/patient/blog" element={<ProtectedRoute allowedRole="patient" requireCompleteProfile><PatientBlog /></ProtectedRoute>} />
       <Route path="/doctor/dashboard" element={<ProtectedRoute allowedRole="doctor"><DoctorDashboard /></ProtectedRoute>} />
       <Route path="/doctor/appointments" element={<ProtectedRoute allowedRole="doctor"><DoctorAppointments /></ProtectedRoute>} />
       <Route path="/doctor/appointment-requests" element={<ProtectedRoute allowedRole="doctor"><DoctorAppointmentRequests /></ProtectedRoute>} />
@@ -74,6 +96,7 @@ function AppRouter() {
       <Route path="/doctor/profile" element={<ProtectedRoute allowedRole="doctor"><DoctorProfile /></ProtectedRoute>} />
       <Route path="/doctor/profile/edit" element={<ProtectedRoute allowedRole="doctor"><DoctorEditProfile /></ProtectedRoute>} />
       <Route path="/doctor/profile/change-password" element={<ProtectedRoute allowedRole="doctor"><DoctorChangePassword /></ProtectedRoute>} />
+      <Route path="/doctor/blog" element={<ProtectedRoute allowedRole="doctor"><DoctorBlog /></ProtectedRoute>} />
       <Route path="/patient/video-call" element={<ProtectedRoute allowedRole="patient" requireCompleteProfile><PatientVideoCall /></ProtectedRoute>} />
       <Route path="/doctor/video-call" element={<ProtectedRoute allowedRole="doctor"><DoctorVideoCall /></ProtectedRoute>} />
       <Route path="/patient/chat" element={<ProtectedRoute allowedRole="patient" requireCompleteProfile><Chat /></ProtectedRoute>} />

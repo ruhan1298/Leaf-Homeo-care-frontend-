@@ -1,3 +1,86 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ReactQuill Custom Styles */
+.ql-container {
+  font-family: inherit;
+  font-size: 14px;
+  border: none !important;
+}
+
+.ql-toolbar {
+  border: none !important;
+  border-bottom: 1px solid #e5e7eb !important;
+  background: #f9fafb;
+}
+
+.ql-editor {
+  min-height: 200px;
+  padding: 12px;
+}
+
+.ql-editor.ql-blank::before {
+  color: #9ca3af;
+  font-style: normal;
+}
+
+/* Blog Content Styling */
+.blog-content {
+  line-height: 1.6;
+}
+
+.blog-content h1 {
+  font-size: 1.875rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  margin-top: 1.5rem;
+}
+
+.blog-content h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.blog-content h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  margin-top: 1rem;
+}
+
+.blog-content p {
+  margin-bottom: 1rem;
+}
+
+.blog-content ul,
+.blog-content ol {
+  margin-bottom: 1rem;
+  padding-left: 1.5rem;
+}
+
+.blog-content li {
+  margin-bottom: 0.25rem;
+}
+
+.blog-content a {
+  color: #00b100;
+  text-decoration: underline;
+}
+
+.blog-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+}
+
+.blog-content blockquote {
+  border-left: 4px solid #00b100;
+  padding-left: 1rem;
+  margin: 1rem 0;
+  font-style: italic;
+  color: #6b7280;
+}
