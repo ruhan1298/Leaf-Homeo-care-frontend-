@@ -1,9 +1,8 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { Leaf, Lock, Mail, User, Phone, Eye, EyeOff, Loader2, AlertCircle, CheckCircle, Shield, Send } from "lucide-react";
-import axios from "axios";
 import Swal from "sweetalert2";
-import { sendPhoneOTP, verifyPhoneOTP, getTermsConditions } from "../../api/authApi";
+import { sendPhoneOTP, verifyPhoneOTP, getTermsConditions, register } from "../../api/authApi";
 const Register = () => {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
@@ -156,9 +155,7 @@ const Register = () => {
     try {
       setLoading(true);
 
-      const response = await axios.post(
-        "http://localhost:5000/api/v1/auth/register",
-        {
+      const response = await register({
           name: formData.name,
           email: formData.email,
           mobile: formData.mobile,
@@ -169,7 +166,7 @@ const Register = () => {
         }
       );
 
-      if (response.data.status === 1) {
+      if (response.status === 1) {
         Swal.fire({
           icon: "success",
           title: "Success",
