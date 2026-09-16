@@ -1,7 +1,9 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import Register from "../pages/patient/register";
 import Login from "../pages/patient/login";
+import PatientForgotPassword from "../pages/patient/ForgotPassword";
 import DoctorLogin from "../pages/doctor/login";
+import DoctorForgotPassword from "../pages/doctor/ForgotPassword";
 import AdminLogin from "../pages/admin/login"
 import AdminDashboard from "../pages/admin/AdminDashboard";
 import AdminDoctors from "../pages/admin/doctor";
@@ -57,7 +59,9 @@ function AppRouter() {
       <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/register" element={<Register />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/patient/forgot-password" element={<PatientForgotPassword />} />
       <Route path="/doctor/login" element={<DoctorLogin />} />
+      <Route path="/doctor/forgot-password" element={<DoctorForgotPassword />} />
       <Route path="/doctor/setup-password" element={<DoctorSetupPassword />} />
       <Route path="/admin/login" element={<AdminLogin />} />
       {/* Public route - no authentication required */}

@@ -12,7 +12,9 @@ import {
   Save,
   Loader2,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  Camera,
+  X
 } from "lucide-react";
 
 export default function CompleteProfile() {
@@ -34,6 +36,8 @@ export default function CompleteProfile() {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [image, setImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
 
   useEffect(() => {
     fetchProfile();
