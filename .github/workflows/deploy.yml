@@ -17,7 +17,8 @@ jobs:
           script: |
             export PATH=/root/.nvm/versions/node/v24.21.0/bin:$PATH
             cd /root/Leaf-Homeo-care-frontend-
-            git pull origin main
+            git fetch origin
+            git reset --hard origin/main
             npm install
             npm run build
             rm -rf /var/www/leafhomoeocare-frontend/*
