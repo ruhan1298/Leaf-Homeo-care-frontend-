@@ -319,21 +319,45 @@ export default function Availability() {
         console.log('Sending payload:', JSON.stringify(payload, null, 2));
 
         const response = await addAvailability(payload.availability);
+        console.log('Response:', response);
+
         if (response.status === 1) {
           await fetchAvailability();
-          Swal.fire({
-            icon: "success",
-            title: "Success",
-            text: "Availability saved successfully",
-            confirmButtonColor: "#00b100"
-          });
+          // Handle partial success with skipped duplicates
+          if (response.skippedSlots && response.skippedSlots.length > 0) {
+            Swal.fire({
+              icon: "success",
+              title: "Saved with Duplicates",
+              text: response.message || "Availability saved successfully",
+              footer: `<small class="text-gray-500">Skipped: ${response.skippedSlots.join(', ')}</small>`,
+              confirmButtonColor: "#00b100"
+            });
+          } else {
+            Swal.fire({
+              icon: "success",
+              title: "Success",
+              text: "Availability saved successfully",
+              confirmButtonColor: "#00b100"
+            });
+          }
         } else {
-          Swal.fire({
-            icon: "error",
-            title: "Error",
-            text: response.message || "Failed to save availability",
-            confirmButtonColor: "#00b100"
-          });
+          // Handle error cases
+          console.log('Error response:', response.message);
+          if (response.message && response.message.includes("already exist")) {
+            Swal.fire({
+              icon: "warning",
+              title: "No Changes",
+              text: response.message,
+              confirmButtonColor: "#00b100"
+            });
+          } else {
+            Swal.fire({
+              icon: "error",
+              title: "Error",
+              text: response.message || "Failed to save availability",
+              confirmButtonColor: "#00b100"
+            });
+          }
         }
       } else {
         Swal.fire({
@@ -345,12 +369,34 @@ export default function Availability() {
       }
     } catch (error) {
       console.error("Error saving availability:", error);
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: "Something went wrong",
-        confirmButtonColor: "#00b100"
-      });
+      console.error("Error response data:", error.response?.data);
+
+      // Handle 400 errors from backend
+      if (error.response?.data) {
+        const errorData = error.response.data;
+        if (errorData.message && errorData.message.includes("already exist")) {
+          Swal.fire({
+            icon: "warning",
+            title: "No Changes",
+            text: errorData.message,
+            confirmButtonColor: "#00b100"
+          });
+        } else {
+          Swal.fire({
+            icon: "error",
+            title: "Error",
+            text: errorData.message || "Failed to save availability",
+            confirmButtonColor: "#00b100"
+          });
+        }
+      } else {
+        Swal.fire({
+          icon: "error",
+          title: "Error",
+          text: "Something went wrong",
+          confirmButtonColor: "#00b100"
+        });
+      }
     } finally {
       setSaving(false);
     }

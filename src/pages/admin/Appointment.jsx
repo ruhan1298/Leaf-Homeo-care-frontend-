@@ -1,18 +1,24 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Search, MoreVertical, Calendar, Clock, ChevronDown, User, Phone, Check, AlertCircle, X } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Search, MoreVertical, Calendar, Clock, ChevronDown, User, Phone, Check, AlertCircle, X, MessageSquare } from "lucide-react";
 import AdminLayout from "../../components/AdminLayout";
-import { getAppointments } from "../../api/appointmentApi";
+import { getAppointments, updateShippingStatus } from "../../api/appointmentApi";
 
 const ENTRIES_OPTIONS = [5, 10, 25, 50];
 
 const COLUMNS = [
+  { key: "appointmentId", label: "Appointment ID" },
   { key: "name", label: "Patient" },
   { key: "mobile", label: "Phone" },
   { key: "datetime", label: "Date & Time" },
   { key: "doctor", label: "Doctor" },
   { key: "status", label: "Status" },
   { key: "payment", label: "Payment" },
+  { key: "shipping", label: "Shipping" },
+  { key: "tracking", label: "Tracking" },
   { key: "notes", label: "Notes" },
+  { key: "chat", label: "Chat" },
+
 ];
 
 const STATUS_STYLES = {
@@ -27,6 +33,13 @@ const PAYMENT_STYLES = {
   paid: "bg-emerald-50 text-emerald-700 border-emerald-200",
   failed: "bg-rose-50 text-rose-700 border-rose-200",
   refunded: "bg-gray-50 text-gray-600 border-gray-200",
+};
+
+const SHIPPING_STYLES = {
+  draft: "bg-gray-50 text-gray-600 border-gray-200",
+  prepared: "bg-blue-50 text-blue-700 border-blue-200",
+  ready_to_transit: "bg-purple-50 text-purple-700 border-purple-200",
+  in_transit: "bg-orange-50 text-orange-700 border-orange-200",
 };
 
 function formatDateTime(dateStr) {
@@ -94,7 +107,25 @@ function PaymentBadge({ status }) {
   );
 }
 
+function ShippingBadge({ status }) {
+  const key = (status || "draft").toLowerCase();
+  const styleClass = SHIPPING_STYLES[key] || SHIPPING_STYLES.draft;
+
+  return (
+    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border ${styleClass}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${
+        key === 'draft' ? 'bg-gray-500' :
+        key === 'prepared' ? 'bg-blue-500' :
+        key === 'ready_to_transit' ? 'bg-purple-500' :
+        key === 'in_transit' ? 'bg-orange-500' : 'bg-gray-500'
+      }`} />
+      {status === 'ready_to_transit' ? 'Ready to Transit' : status || "Draft"}
+    </span>
+  );
+}
+
 export default function AppointmentManagement() {
+  const navigate = useNavigate();
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -108,10 +139,75 @@ export default function AppointmentManagement() {
 
   const [selectedAppt, setSelectedAppt] = useState(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [updatingShipping, setUpdatingShipping] = useState(false);
+  const [confirmShippingChange, setConfirmShippingChange] = useState(null);
 
   const handleOpenDetails = (appt) => {
     setSelectedAppt(appt);
     setDetailsOpen(true);
+  };
+
+  const handleShippingStatusChange = async (appt, newStatus) => {
+    // Don't open confirmation if status hasn't changed
+    if (appt.shippingStatus === newStatus) {
+      return;
+    }
+    setConfirmShippingChange({ appt, newStatus });
+  };
+
+  const confirmShippingStatusUpdate = async () => {
+    if (!confirmShippingChange) return;
+
+    const { appt, newStatus } = confirmShippingChange;
+    
+    try {
+      setUpdatingShipping(true);
+      
+      const response = await updateShippingStatus(appt.id, newStatus);
+      
+      if (response.status === 1) {
+        // Update local state
+        setAppointments(prev => prev.map(a => 
+          a.id === appt.id ? { ...a, shippingStatus: newStatus } : a
+        ));
+        
+        if (selectedAppt?.id === appt.id) {
+          setSelectedAppt(prev => ({ ...prev, shippingStatus: newStatus }));
+        }
+      } else {
+        throw new Error(response.message || "Failed to update shipping status");
+      }
+    } catch (error) {
+      console.error("Failed to update shipping status:", error);
+      alert("Failed to update shipping status: " + error.message);
+    } finally {
+      setUpdatingShipping(false);
+      setConfirmShippingChange(null);
+    }
+  };
+
+  const cancelShippingStatusUpdate = () => {
+    setConfirmShippingChange(null);
+  };
+
+  const getAvailableShippingStatuses = (currentStatus) => {
+    const statusFlow = {
+      draft: ['prepared'],
+      prepared: ['ready_to_transit'],
+      ready_to_transit: ['in_transit'],
+      in_transit: []
+    };
+    
+    return statusFlow[currentStatus] || [];
+  };
+
+  const handleViewChat = (appt) => {
+    if (!appt.id) {
+      alert("Cannot view chat - appointment information missing");
+      return;
+    }
+    // Navigate to admin chat monitoring page
+    navigate(`/admin/chat-monitoring/${appt.id}`);
   };
 
   const fetchAppointments = useCallback(async () => {
@@ -222,7 +318,6 @@ export default function AppointmentManagement() {
                     {col.label}
                   </th>
                 ))}
-                <th className="px-6 py-4 font-semibold whitespace-nowrap text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -230,6 +325,9 @@ export default function AppointmentManagement() {
                 const dt = formatDateTime(appt.appointmentDate);
                 return (
                   <tr key={appt.id} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="px-6 py-4.5 whitespace-nowrap">
+                      <span className="font-semibold text-gray-900 text-sm">#{appt.appointmentId || appt.id}</span>
+                    </td>
                     <td className="px-6 py-4.5 whitespace-nowrap">
                       <div className="flex items-center gap-3 cursor-pointer hover:opacity-80" onClick={() => handleOpenDetails(appt)}>
                         {appt.patient?.image ? (
@@ -296,14 +394,54 @@ export default function AppointmentManagement() {
                     <td className="px-6 py-4.5 whitespace-nowrap">
                       <PaymentBadge status={appt.payment?.status || "pending"} />
                     </td>
-                    <td className="px-6 py-4.5 text-gray-600 whitespace-nowrap text-sm max-w-xs truncate" title={appt.notes}>{appt.notes || "-"}</td>
-                    <td className="px-6 py-4.5 text-right whitespace-nowrap">
-                      <div className="flex items-center justify-end gap-2">
-                        <button className="text-gray-400 hover:text-gray-600 transition-colors p-1.5 rounded-lg">
-                          <MoreVertical size={16} />
-                        </button>
-                      </div>
+                    <td className="px-6 py-4.5 whitespace-nowrap">
+                      {appt.trackingUrl ? (
+                        <a 
+                          href={appt.trackingUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-xs text-blue-600 hover:underline font-semibold"
+                        >
+                          Track Package
+                        </a>
+                      ) : (
+                        <span className="text-xs text-gray-400">-</span>
+                      )}
                     </td>
+                    <td className="px-6 py-4.5 whitespace-nowrap">
+                      {appt.status === "paid" ? (
+                        <select
+                          value={appt.shippingStatus || "draft"}
+                          onChange={(e) => handleShippingStatusChange(appt, e.target.value)}
+                          disabled={updatingShipping}
+                          className={`text-xs px-2.5 py-1 rounded-full font-semibold border focus:outline-none focus:border-green-500 disabled:opacity-50 appearance-none ${SHIPPING_STYLES[appt.shippingStatus || "draft"] || SHIPPING_STYLES.draft}`}
+                        >
+                          <option value={appt.shippingStatus || "draft"}>{appt.shippingStatus === 'ready_to_transit' ? 'Ready to Transit' : (appt.shippingStatus || "Draft")}</option>
+                          {getAvailableShippingStatuses(appt.shippingStatus || "draft").map(status => (
+                            <option key={status} value={status}>
+                              {status === 'ready_to_transit' ? 'Ready to Transit' : status.replace('_', ' ')}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <ShippingBadge status={appt.shippingStatus || "draft"} />
+                      )}
+                    </td>
+                    <td className="px-6 py-4.5 text-gray-600 whitespace-nowrap text-sm max-w-xs truncate" title={appt.notes}>{appt.notes || "-"}</td>
+                    <td className="px-6 py-4.5 whitespace-nowrap">
+                      {appt.doctor ? (
+                        <button
+                          onClick={() => handleViewChat(appt)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white text-xs font-semibold rounded-lg hover:bg-green-700 transition-colors"
+                        >
+                          <MessageSquare size={14} />
+                          View Chat
+                        </button>
+                      ) : (
+                        <span className="text-xs text-gray-400">-</span>
+                      )}
+                    </td>
+
                   </tr>
                 );
               })}
@@ -374,6 +512,28 @@ export default function AppointmentManagement() {
                       <PaymentBadge status={appt.payment?.status || "pending"} />
                     </div>
                   </div>
+                  <div>
+                    <p className="text-[10px] uppercase font-bold tracking-wider text-gray-400">Shipping</p>
+                    <div className="mt-0.5">
+                      {appt.status === "paid" ? (
+                        <select
+                          value={appt.shippingStatus || "draft"}
+                          onChange={(e) => handleShippingStatusChange(appt, e.target.value)}
+                          disabled={updatingShipping}
+                          className={`text-xs px-2.5 py-1 rounded-full font-semibold border focus:outline-none focus:border-green-500 disabled:opacity-50 appearance-none ${SHIPPING_STYLES[appt.shippingStatus || "draft"] || SHIPPING_STYLES.draft}`}
+                        >
+                          <option value={appt.shippingStatus || "draft"}>{appt.shippingStatus === 'ready_to_transit' ? 'Ready to Transit' : (appt.shippingStatus || "Draft")}</option>
+                          {getAvailableShippingStatuses(appt.shippingStatus || "draft").map(status => (
+                            <option key={status} value={status}>
+                              {status === 'ready_to_transit' ? 'Ready to Transit' : status.replace('_', ' ')}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <ShippingBadge status={appt.shippingStatus || "draft"} />
+                      )}
+                    </div>
+                  </div>
                   <div className="col-span-2">
                     <p className="text-[10px] uppercase font-bold tracking-wider text-gray-400">Notes</p>
                     <p className="text-gray-900 mt-0.5 line-clamp-2">{appt.notes || "-"}</p>
@@ -381,6 +541,15 @@ export default function AppointmentManagement() {
                 </div>
 
                 <div className="flex items-center gap-2 pt-4 border-t border-gray-100">
+                  {appt.doctor && appt.status === "paid" && (
+                    <button
+                      onClick={() => handleViewChat(appt)}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-green-600 text-white text-xs font-semibold rounded-lg hover:bg-green-700 transition-colors"
+                    >
+                      <MessageSquare size={14} />
+                      View Chat
+                    </button>
+                  )}
                   <button className="text-gray-400 hover:text-gray-600 transition-colors p-2 rounded-xl border border-gray-100">
                     <MoreVertical size={16} />
                   </button>
@@ -420,11 +589,39 @@ export default function AppointmentManagement() {
         </div>
       </div>
       <AppointmentDetailsModal open={detailsOpen} onClose={() => setDetailsOpen(false)} appointment={selectedAppt} />
+      
+      {/* Shipping Status Confirmation Modal */}
+      {confirmShippingChange && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
+            <h3 className="text-lg font-extrabold text-gray-900 tracking-tight mb-2">Update Shipping Status</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Are you sure you want to change the shipping status from <span className="font-semibold text-gray-900 capitalize">{confirmShippingChange.appt.shippingStatus || "Draft"}</span> to <span className="font-semibold text-gray-900 capitalize">{confirmShippingChange.newStatus.replace('_', ' ')}</span>?
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={cancelShippingStatusUpdate}
+                disabled={updatingShipping}
+                className="px-4 py-2 rounded-lg text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmShippingStatusUpdate}
+                disabled={updatingShipping}
+                className="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-green-600 hover:bg-green-700 transition-colors disabled:opacity-50"
+              >
+                {updatingShipping ? "Updating..." : "Confirm"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 }
 
-function AppointmentDetailsModal({ open, onClose, appointment }) {
+function AppointmentDetailsModal({ open, onClose, appointment, updatingShipping, handleShippingStatusChange }) {
   if (!open || !appointment) return null;
 
   const dt = formatDateTime(appointment.appointmentDate);
@@ -536,11 +733,11 @@ function AppointmentDetailsModal({ open, onClose, appointment }) {
             </div>
             <div className="p-4 grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
-                <p className="text-[10px] uppercase font-bold tracking-wider text-gray-400">Amount Paid</p>
+                <p className="text-[10px] uppercase font-bold tracking-wider text-gray-400">Amount</p>
                 <p className="text-sm text-gray-900 font-bold mt-0.5">₹{appointment.payment?.amount || "0.00"}</p>
               </div>
               <div>
-                <p className="text-[10px] uppercase font-bold tracking-wider text-gray-400">Payment Status</p>
+                <p className="text-[10px] uppercase font-bold tracking-wider text-gray-400">Status</p>
                 <div className="mt-0.5">
                   <PaymentBadge status={appointment.payment?.status || "pending"} />
                 </div>

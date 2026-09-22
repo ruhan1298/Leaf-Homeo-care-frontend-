@@ -43,6 +43,8 @@ import PatientVideoCall from "../pages/patient/VideoCall";
 import DoctorVideoCall from "../pages/doctor/VideoCall";
 import PublicDoctorProfile from "../pages/PublicDoctorProfile";
 import Chat from "../pages/Chat";
+import AdminChat from "../pages/admin/Chat";
+import AdminChatMonitoring from "../pages/admin/ChatMonitoring";
 import DoctorDetails from "../pages/patient/DoctorDetails";
 import LandingPage from "../pages/LandingPage";
 import TermsAndConditions from "../pages/TermsAndConditions";
@@ -75,6 +77,8 @@ function AppRouter() {
       <Route path="/admin/legal-documents" element={<ProtectedRoute allowedRole="admin"><LegalDocuments /></ProtectedRoute>} />
       <Route path="/admin/blogs" element={<ProtectedRoute allowedRole="admin"><BlogManagement /></ProtectedRoute>} />
       <Route path="/admin/coupons" element={<ProtectedRoute allowedRole="admin"><AdminCoupons /></ProtectedRoute>} />
+      <Route path="/admin/chat" element={<ProtectedRoute allowedRole="admin"><AdminChat /></ProtectedRoute>} />
+      <Route path="/admin/chat-monitoring/:appointmentId" element={<ProtectedRoute allowedRole="admin"><AdminChatMonitoring /></ProtectedRoute>} />
       <Route path="/patient/dashboard" element={<ProtectedRoute allowedRole="patient" requireCompleteProfile><PatientDashboard /></ProtectedRoute>} />
       <Route path="/patient/book" element={<ProtectedRoute allowedRole="patient" requireCompleteProfile><PatientBookAppointment /></ProtectedRoute>} />
       <Route path="/patient/doctors" element={<ProtectedRoute allowedRole="patient" requireCompleteProfile><DoctorSelection /></ProtectedRoute>} />

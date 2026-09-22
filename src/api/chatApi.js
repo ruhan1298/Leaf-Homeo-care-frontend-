@@ -32,6 +32,11 @@ export const getChatHistoryByAppointments = async (otherUserId) => {
   return response.data;
 };
 
+export const getAppointmentChatHistory = async (appointmentId) => {
+  const response = await API.get(`/api/v1/chat/appointment-chat/${appointmentId}`);
+  return response.data;
+};
+
 export const getContactById = async (userId) => {
   const response = await API.get(`/api/v1/chat/contact/${userId}`);
   return response.data;

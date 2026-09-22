@@ -76,7 +76,8 @@ const formatDate = (dateString) => {
   return date.toLocaleDateString("en-US", {
     year: "numeric",
     month: "short",
-    day: "numeric"
+    day: "numeric",
+    timeZone: "Asia/Kolkata"
   });
 };
 
@@ -108,7 +109,8 @@ const formatTime = (dateString) => {
   const date = new Date(dateString);
   return date.toLocaleTimeString("en-US", {
     hour: "2-digit",
-    minute: "2-digit"
+    minute: "2-digit",
+    timeZone: "Asia/Kolkata"
   });
 };
 

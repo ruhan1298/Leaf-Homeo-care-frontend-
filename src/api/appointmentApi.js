@@ -68,3 +68,11 @@ export const getPatientDetails = async (patientId) => {
   const response = await API.post("/api/v1/admin/patient-details", { patientId });
   return response.data;
 };
+
+export const updateShippingStatus = async (appointmentId, shippingStatus, trackerId) => {
+  const response = await API.put(`/api/v1/appointment/update-shipping-status/${appointmentId}`, {
+    shippingStatus,
+    trackerId
+  });
+  return response.data;
+};

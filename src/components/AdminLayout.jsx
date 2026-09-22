@@ -17,7 +17,8 @@ import {
   User,
   FileText,
   PenTool,
-  Percent
+  Percent,
+  MessageSquare
 } from "lucide-react";
 import { getNotifications } from "../api/authApi";
 
@@ -26,6 +27,7 @@ const navItems = [
   { icon: Stethoscope, label: "Doctors", path: "/admin/doctors" },
   { icon: Users, label: "Patients", path: "/admin/patients" },
   { icon: Calendar, label: "Appointments", path: "/admin/appointments" },
+  { icon: MessageSquare, label: "Support Chat", path: "/admin/chat" },
   { icon: PenTool, label: "Blogs", path: "/admin/blogs" },
   { icon: Percent, label: "Coupons", path: "/admin/coupons" },
   { icon: FileText, label: "Legal Documents", path: "/admin/legal-documents" },

@@ -116,23 +116,25 @@ export default function AppointmentDetails() {
       setBookingLoading(true);
       setError(null);
 
-      const appointmentDateTime = `${selectedDate} ${selectedTime}`;
-      
+      // Create date in local timezone and convert to ISO string
+      const appointmentDateTime = new Date(`${selectedDate} ${selectedTime}`);
+      const appointmentDateTimeISO = appointmentDateTime.toISOString();
+
       const bookingData = {
         doctorId: selectedDoctor.id,
         requestType: "specific_doctor",
-        appointmentDateTime,
+        appointmentDateTime: appointmentDateTimeISO,
         reason: symptoms
       };
 
       const response = await bookAppointment(bookingData);
-      
+
       if (response.status === 1) {
-        navigate("/patient/appointments", { 
-          state: { 
+        navigate("/patient/appointments", {
+          state: {
             bookingSuccess: true,
-            message: "Appointment request sent to Dr. " + selectedDoctor.name + "! You will be notified when they accept." 
-          } 
+            message: "Appointment request sent to Dr. " + selectedDoctor.name + "! You will be notified when they accept."
+          }
         });
       } else {
         setError(response.message || "Failed to book appointment");
