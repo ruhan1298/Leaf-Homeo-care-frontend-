@@ -37,13 +37,6 @@ export default function BookAnyDoctor() {
       const appointmentDateTime = new Date(`${selectedDate} ${selectedTime}`);
       const appointmentDateTimeISO = appointmentDateTime.toISOString();
 
-      console.log("=== FRONTEND BOOKING DEBUG ===");
-      console.log("Selected Date:", selectedDate);
-      console.log("Selected Time:", selectedTime);
-      console.log("Local Date Object:", appointmentDateTime);
-      console.log("ISO String to send:", appointmentDateTimeISO);
-      console.log("==============================");
-
       const bookingData = {
         requestType: "any_doctor",
         appointmentDateTime: appointmentDateTimeISO,
