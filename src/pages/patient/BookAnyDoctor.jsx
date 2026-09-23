@@ -37,6 +37,11 @@ export default function BookAnyDoctor() {
       const appointmentDateTime = new Date(`${selectedDate} ${selectedTime}`);
       const appointmentDateTimeISO = appointmentDateTime.toISOString();
 
+      console.log("=== NEW CODE DEPLOYED ===");
+      console.log("Timezone Fix Applied: ISO Conversion");
+      console.log("Sending:", appointmentDateTimeISO);
+      console.log("==========================");
+
       const bookingData = {
         requestType: "any_doctor",
         appointmentDateTime: appointmentDateTimeISO,
