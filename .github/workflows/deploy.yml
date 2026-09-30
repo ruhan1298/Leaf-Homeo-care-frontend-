@@ -15,26 +15,29 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
+            set -e
             export PATH=/root/.nvm/versions/node/v24.21.0/bin:$PATH
             cd /root/Leaf-Homeo-care-frontend-
-            
+
             # Backup .env file
             cp .env .env.backup || true
-            
+
             # Stash any local changes
             git stash || true
-            
+
             # Fetch and reset to latest
             git fetch origin
             git reset --hard origin/main
-            
+
             # Restore .env file
             cp .env.backup .env || true
-            
+
             # Install and build
-            npm install
+            npm ci
             npm run build
-            
-            # Copy to web directory
-            rm -rf /var/www/leafhomoeocare-frontend/*
-            cp -r dist/* /var/www/leafhomoeocare-frontend/
+
+            # Copy to web directory (must match nginx root)
+            rsync -a --delete dist/ /var/www/leafhomoeocare/
+            nginx -t && systemctl reload nginx
+
+            echo "Deployed: $(git log --oneline -1)"
